@@ -12,7 +12,7 @@ public sealed class UserRepository(BookmarkDbContext dbContext) : IUserRepositor
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<List<User>> GetAllUserAsync(CancellationToken cancellationToken)
+    public async Task<IEnumerable<User>> GetAllUserAsync(CancellationToken cancellationToken)
     {
         return await dbContext.Users.AsNoTracking().ToListAsync(cancellationToken);
     }

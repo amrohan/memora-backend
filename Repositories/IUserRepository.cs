@@ -5,7 +5,7 @@ namespace memora_backend.Repositories;
 public interface IUserRepository
 {
     Task AddAsync(User user, CancellationToken cancellationToken);
-    Task<List<User>> GetAllUserAsync(CancellationToken cancellationToken);
+    Task<IEnumerable<User>> GetAllUserAsync(CancellationToken cancellationToken);
     Task UpdateAsync(User user, CancellationToken cancellationToken);
     Task DeleteAsync(User user, CancellationToken cancellationToken);
     Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken);
