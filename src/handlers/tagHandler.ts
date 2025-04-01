@@ -174,8 +174,11 @@ export const createTag = async (c: Context) => {
     const newTag = await db.tag.create({
       data: {
         name,
+        user: {
+          connect: { id: user.id },
+        },
         bookmarks: {
-          connect: [], // No bookmarks connected initially
+          connect: [],
         },
       },
     });
@@ -287,9 +290,7 @@ export const createDefaultTags = async (user: AuthUser) => {
       await db.tag.createMany({
         data: tagsToCreate.map((tag) => ({
           name: tag,
-          bookmarks: {
-            connect: [],
-          },
+          userId: user.id,
         })),
       });
     }
