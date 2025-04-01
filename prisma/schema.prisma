@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // Use SQLite
+  url      = "file:./dev.db" // Path relative to schema location
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  bookmarks    Bookmark[]
+  collections  Collection[]
+  Tag          Tag[]
+}
+
+model Bookmark {
+  id          String   @id @default(cuid())
+  url         String
+  title       String?
+  description String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tags        Tag[]        @relation("BookmarkTags")
+  collections Collection[] @relation("BookmarkCollections")
+
+  @@unique([userId, url]) // Prevent user from adding the same URL twice
+  @@index([userId])
+}
+
+model Tag {
+  id        String     @id @default(cuid())
+  name      String     @unique // Global unique tags
+  createdAt DateTime   @default(now())
+  bookmarks Bookmark[] @relation("BookmarkTags")
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Collection {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade) // Collections belong to a user
+
+  bookmarks Bookmark[] @relation("BookmarkCollections")
+
+  @@unique([userId, name]) // Prevent user from having duplicate collection names
+  @@index([userId])
+}

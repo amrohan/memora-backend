@@ -1,0 +1,25 @@
+# Node
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal*
+prisma/migrations/*.sql
+
+# TypeScript compilation artifacts
+*.tsbuildinfo
+
+# OS generated files
+.DS_Store
+Thumbs.db

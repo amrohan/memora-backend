@@ -1,0 +1,44 @@
+{
+  "name": "hono-prisma-sqlite-bookmarks",
+  "version": "1.0.0",
+  "description": "Bookmark manager app with Hono, Prisma, SQLite",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prisma:migrate:dev": "npx prisma migrate dev",
+    "prisma:generate": "npx prisma generate",
+    "prisma:studio": "npx prisma studio"
+  },
+  "keywords": [
+    "hono",
+    "prisma",
+    "bookmarks",
+    "nodejs",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hono/node-server": "^1.11.1",
+    "@prisma/client": "^5.14.0",
+    "bcrypt": "^5.1.1",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.5",
+    "hono": "^4.4.6",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.2",
+    "prisma": "^5.14.0",
+    "tsx": "^4.15.6",
+    "typescript": "^5.4.5"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}
