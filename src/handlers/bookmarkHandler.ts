@@ -2,6 +2,7 @@ import { Context } from "hono";
 import db from "../db";
 import { fetchMetadata } from "../lib/metadataFetcher";
 import { getAuthUser } from "../lib/authUtils";
+import { sendApiResponse } from "../lib/responseUtils";
 
 export const addBookmark = async (c: Context) => {
   const user = getAuthUser(c);
@@ -12,13 +13,18 @@ export const addBookmark = async (c: Context) => {
 
     // Basic Validation
     if (!url || typeof url !== "string") {
-      return c.json(
-        {
-          error: "Validation failed",
-          message: "URL is required and must be a string.",
-        },
-        400
-      );
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Bad Request",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "url",
+            message: "URL is required and must be a valid string.",
+          },
+        ],
+      });
     }
     // Add more robust URL validation if needed
 
@@ -27,14 +33,18 @@ export const addBookmark = async (c: Context) => {
       where: { userId_url: { userId: user.id, url: url } },
     });
     if (existingBookmark) {
-      return c.json(
-        {
-          error: "Conflict",
-          message: "Bookmark with this URL already exists.",
-          bookmark: existingBookmark,
-        },
-        409
-      );
+      return sendApiResponse(c, {
+        status: 409,
+        message: "Conflict",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "url",
+            message: "Bookmark with this URL already exists.",
+          },
+        ],
+      });
     }
 
     // Fetch metadata (title, description, image)
@@ -56,33 +66,45 @@ export const addBookmark = async (c: Context) => {
 
     // Return the newly created bookmark
     // You might redirect to an edit page or just return the data
-    return c.json(
-      {
-        message: "Bookmark added. Proceed to edit for tags/collections.",
-        bookmark: newBookmark,
-      },
-      201
-    );
+    return sendApiResponse(c, {
+      status: 201,
+      message: "Bookmark added successfully.",
+      data: newBookmark,
+      metadata: null,
+      errors: null,
+    });
   } catch (error: any) {
     console.error("Add Bookmark Error:", error);
     // Handle potential Prisma unique constraint errors more gracefully if needed
     if (error.code === "P2002") {
       // Prisma unique constraint violation code
-      return c.json(
-        {
-          error: "Conflict",
-          message: "Bookmark with this URL likely already exists.",
-        },
-        409
-      );
+      return sendApiResponse(c, {
+        status: 409,
+        message: "Conflict",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "url",
+            message: "Bookmark with this URL already exists.",
+          },
+        ],
+      });
     }
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: error.message || "Failed to add bookmark.",
-      },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message:
+            error.message ||
+            "Failed to create bookmark. Please try again later.",
+        },
+      ],
+    });
   }
 };
 
@@ -107,25 +129,42 @@ export const getBookmark = async (c: Context) => {
     });
 
     if (!bookmark) {
-      return c.json(
-        {
-          error: "Not Found",
-          message: "Bookmark not found or you do not have permission.",
-        },
-        404
-      );
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Bookmark not found or you do not have permission.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "bookmark",
+            message: "Bookmark not found or you do not have permission.",
+          },
+        ],
+      });
     }
 
-    return c.json(bookmark);
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Bookmark retrieved successfully.",
+      data: bookmark,
+      metadata: null,
+      errors: null,
+    });
   } catch (error: any) {
     console.error("Get Bookmark Error:", error);
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: "Failed to retrieve bookmark.",
-      },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message:
+            error.message || "Failed to retrieve bookmark. Please try again.",
+        },
+      ],
+    });
   }
 };
 
@@ -143,19 +182,35 @@ export const updateBookmark = async (c: Context) => {
     // collectionIds should be an array of collection *IDs* (strings)
 
     // Validate input types (basic example)
-    if (tags && !Array.isArray(tags))
-      return c.json(
-        { error: "Bad Request", message: "Tags must be an array of strings." },
-        400
-      );
-    if (collectionIds && !Array.isArray(collectionIds))
-      return c.json(
-        {
-          error: "Bad Request",
-          message: "Collection IDs must be an array of strings.",
-        },
-        400
-      );
+    if (tags && !Array.isArray(tags)) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Bad Request",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "tags",
+            message: "Tags must be an array of strings.",
+          },
+        ],
+      });
+    }
+
+    if (collectionIds && !Array.isArray(collectionIds)) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Bad Request",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collectionIds",
+            message: "Collection IDs must be an array of strings.",
+          },
+        ],
+      });
+    }
 
     // 1. Find the bookmark to ensure it exists and belongs to the user
     const existingBookmark = await db.bookmark.findUnique({
@@ -163,13 +218,18 @@ export const updateBookmark = async (c: Context) => {
     });
 
     if (!existingBookmark) {
-      return c.json(
-        {
-          error: "Not Found",
-          message: "Bookmark not found or you do not have permission.",
-        },
-        404
-      );
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Bookmark not found or you do not have permission.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "bookmark",
+            message: "Bookmark not found or you do not have permission.",
+          },
+        ],
+      });
     }
 
     // 2. Handle Tags: Find existing or create new tags based on names provided
@@ -230,27 +290,44 @@ export const updateBookmark = async (c: Context) => {
       },
     });
 
-    return c.json({
+    return sendApiResponse(c, {
+      status: 200,
       message: "Bookmark updated successfully.",
-      bookmark: updatedBookmark,
+      data: updatedBookmark,
+      metadata: null,
+      errors: null,
     });
   } catch (error: any) {
     console.error("Update Bookmark Error:", error);
     // Handle potential Prisma errors
     if (error.code === "P2025") {
       // Record to update not found (might happen if ID is wrong)
-      return c.json(
-        { error: "Not Found", message: "Bookmark to update not found." },
-        404
-      );
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Bookmark not found.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "bookmark",
+            message: "Bookmark not found.",
+          },
+        ],
+      });
     }
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: error.message || "Failed to update bookmark.",
-      },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message:
+            error.message || "Failed to update bookmark. Please try again.",
+        },
+      ],
+    });
   }
 };
 
@@ -272,27 +349,44 @@ export const deleteBookmark = async (c: Context) => {
 
     // deleteMany returns a count. If count is 0, the bookmark wasn't found or didn't belong to the user.
     if (deleteResult.count === 0) {
-      return c.json(
-        {
-          error: "Not Found",
-          message:
-            "Bookmark not found or you do not have permission to delete it.",
-        },
-        404
-      );
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Bookmark not found or you do not have permission.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "bookmark",
+            message: "Bookmark not found or you do not have permission.",
+          },
+        ],
+      });
     }
 
-    return c.json({ message: "Bookmark deleted successfully." }, 200); // Or 204 No Content
+    return sendApiResponse(c, {
+      status: 204,
+      message: "Bookmark deleted successfully.",
+      data: null,
+      metadata: null,
+      errors: null,
+    });
+
     // return c.body(null, 204)
   } catch (error: any) {
     console.error("Delete Bookmark Error:", error);
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: error.message || "Failed to delete bookmark.",
-      },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message:
+            error.message || "Failed to delete bookmark. Please try again.",
+        },
+      ],
+    });
   }
 };
 
@@ -321,15 +415,27 @@ export const listBookmarks = async (c: Context) => {
       // Add pagination logic here if implementing (skip, take)
     });
 
-    return c.json(bookmarks);
-  } catch (error: any) {
-    console.error("List Bookmarks Error:", error);
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: "Failed to retrieve bookmarks.",
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Bookmarks retrieved successfully.",
+      data: bookmarks,
+      metadata: {
+        totalCount: bookmarks.length,
       },
-      500
-    );
+      errors: null,
+    });
+  } catch (error: any) {
+    sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "Failed to retrieve bookmarks.",
+        },
+      ],
+    });
   }
 };

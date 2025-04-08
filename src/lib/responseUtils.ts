@@ -41,7 +41,6 @@ function createApiResponse<T>(
 
 import { Context } from "hono";
 import { ContentfulStatusCode } from "hono/utils/http-status";
-import { waitForDebugger } from "inspector";
 
 function sendApiResponse<T>(c: Context, response: ApiResponse<T>): Response {
   return c.json(response, response.status as ContentfulStatusCode); // Explicitly cast
@@ -49,37 +48,37 @@ function sendApiResponse<T>(c: Context, response: ApiResponse<T>): Response {
 
 // Example route handler (success):
 
-async function handleSuccess(c: Context) {
-  const userData = { id: 1, name: "example", email: "example@email.com" };
-  const response = createApiResponse(
-    200,
-    "User retrieved successfully",
-    userData
-  );
-  return sendApiResponse(c, response);
-}
+// async function handleSuccess(c: Context) {
+//   const userData = { id: 1, name: "example", email: "example@email.com" };
+//   const response = createApiResponse(
+//     200,
+//     "User retrieved successfully",
+//     userData
+//   );
+//   return sendApiResponse(c, response);
+// }
 
-// Example route handler (error):
+// // Example route handler (error):
 
-async function handleError(c: Context) {
-  const errorList: ApiError[] = [{ field: "email", message: "Invalid email" }];
-  const response = createApiResponse(400, "Bad Request", null, errorList);
-  return sendApiResponse(c, response);
-}
+// async function handleError(c: Context) {
+//   const errorList: ApiError[] = [{ field: "email", message: "Invalid email" }];
+//   const response = createApiResponse(400, "Bad Request", null, errorList);
+//   return sendApiResponse(c, response);
+// }
 
-// Example route handler (created):
+// // Example route handler (created):
 
-async function handleCreated(c: Context) {
-  const newItem = { id: 2, name: "another example" };
-  const response = createApiResponse(201, "Item Created", newItem);
-  return sendApiResponse(c, response);
-}
+// async function handleCreated(c: Context) {
+//   const newItem = { id: 2, name: "another example" };
+//   const response = createApiResponse(201, "Item Created", newItem);
+//   return sendApiResponse(c, response);
+// }
 
-// Example route handler (server error):
+// // Example route handler (server error):
 
-async function handleServerError(c: Context) {
-  const response = createApiResponse(500, "Internal Server Error");
-  return sendApiResponse(c, response);
-}
+// async function handleServerError(c: Context) {
+//   const response = createApiResponse(500, "Internal Server Error");
+//   return sendApiResponse(c, response);
+// }
 
 export { createApiResponse, sendApiResponse };

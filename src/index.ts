@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 import { serve } from "@hono/node-server";
@@ -11,6 +12,18 @@ const app = new Hono();
 // --- Middleware ---
 app.use("*", logger());
 app.use("*", secureHeaders());
+app.use("/api/*", cors());
+app.use(
+  "/api2/*",
+  cors({
+    origin: "http://localhost:4200",
+    allowHeaders: ["X-Custom-Header", "Upgrade-Insecure-Requests"],
+    allowMethods: ["POST", "GET", "PUT", "OPTIONS"],
+    exposeHeaders: ["Content-Length", "X-Kuma-Revision"],
+    maxAge: 600,
+    credentials: true,
+  }),
+);
 
 // --- Routing ---
 app.get("/", (c) => c.text("Bookmark Manager API - Welcome!")); // Root endpoint
@@ -25,7 +38,7 @@ app.notFound((c) => {
       error: "Not Found",
       message: `The route ${c.req.method} ${c.req.path} does not exist.`,
     },
-    404
+    404,
   );
 });
 
@@ -50,7 +63,7 @@ const getCurrentIndianTime = () => {
   } catch (e) {
     // Fallback if timezone data is unavailable in some minimal environments
     console.warn(
-      "Could not format time for Asia/Kolkata timezone, using default locale."
+      "Could not format time for Asia/Kolkata timezone, using default locale.",
     );
     return new Date().toLocaleString();
   }

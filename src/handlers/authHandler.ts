@@ -2,6 +2,7 @@ import { Context } from "hono";
 import db from "../db";
 import { hashPassword, comparePassword, generateToken } from "../lib/authUtils";
 import { JwtPayload } from "../types";
+import { sendApiResponse } from "../lib/responseUtils";
 
 // --- Registration Handler ---
 export const registerUser = async (c: Context) => {
@@ -10,23 +11,55 @@ export const registerUser = async (c: Context) => {
 
     // Basic Validation
     if (!email || !password) {
-      return c.json(
-        {
-          error: "Validation failed",
-          message: "Email and password are required.",
-        },
-        400,
-      );
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Validation failed",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "email",
+            message: "Email and password are required.",
+          },
+          {
+            field: "password",
+            message: "Email and password are required.",
+          },
+        ],
+      });
     }
     // Add more validation (e.g., email format, password complexity) here
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Validation failed",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "email",
+            message: "Invalid email format.",
+          },
+        ],
+      });
+    }
 
     // Check if user already exists
     const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
-      return c.json(
-        { error: "Conflict", message: "User with this email already exists." },
-        409,
-      );
+      return sendApiResponse(c, {
+        status: 409,
+        message: "Conflict",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "email",
+            message: "Email already in use.",
+          },
+        ],
+      });
     }
 
     // Hash password
@@ -44,24 +77,33 @@ export const registerUser = async (c: Context) => {
     const payload: JwtPayload = { userId: newUser.id, email: newUser.email };
     const token = generateToken(payload);
 
-    return c.json(
-      {
-        message: "User registered successfully.",
-        token: token,
+    // Send success response
+    return sendApiResponse(c, {
+      status: 201,
+      message: "User registered successfully.",
+      data: {
+        token,
         user: { id: newUser.id, email: newUser.email },
       },
-      201,
-    ); // 201 Created
+      metadata: null,
+      errors: null,
+    });
   } catch (error: any) {
     console.error("Registration Error:", error);
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message:
-          error.message || "An unexpected error occurred during registration.",
-      },
-      500,
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message:
+            error.message ||
+            "An unexpected error occurred during registration.",
+        },
+      ],
+    });
   }
 };
 
@@ -77,46 +119,71 @@ export const loginUser = async (c: Context) => {
           error: "Validation failed",
           message: "Email and password are required.",
         },
-        400,
+        400
       );
     }
 
     // Find user by email
     const user = await db.user.findUnique({ where: { email } });
     if (!user) {
-      return c.json(
-        { error: "Unauthorized", message: "Invalid email or password." },
-        401,
-      ); // Generic message for security
+      return sendApiResponse(c, {
+        status: 401,
+        message: "Unauthorized",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "email",
+            message: "Invalid email or password.",
+          },
+        ],
+      }); // Generic message for security
     }
 
     // Compare password
     const isPasswordValid = await comparePassword(password, user.passwordHash);
     if (!isPasswordValid) {
-      return c.json(
-        { error: "Unauthorized", message: "Invalid email or password." },
-        401,
-      );
+      return sendApiResponse(c, {
+        status: 401,
+        message: "Unauthorized",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "password",
+            message: "Invalid email or password.",
+          },
+        ],
+      });
     }
 
-    // Generate JWT
     const payload: JwtPayload = { userId: user.id, email: user.email };
     const token = generateToken(payload);
 
-    // Return success response
-    return c.json({
+    return sendApiResponse(c, {
+      status: 200,
       message: "Login successful.",
-      token: token,
-      user: { id: user.id, email: user.email },
+      data: {
+        token,
+        user: { id: user.id, email: user.email },
+      },
+      metadata: null,
+      errors: null,
     });
   } catch (error: any) {
     console.error("Login Error:", error);
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: error.message || "An unexpected error occurred during login.",
-      },
-      500,
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message:
+            error.message || "An unexpected error occurred during login.",
+        },
+      ],
+    });
   }
 };
