@@ -1,9 +1,8 @@
-// src/handlers/tagHandler.ts (Updated)
-
 import { Context } from "hono";
 import db from "../db"; // Import the Prisma client instance [cite: uploaded:src/db.ts]
 import { AuthUser } from "../types"; // Need this for user-specific tags [cite: uploaded:src/types/index.ts]
 import { getAuthUser } from "../lib/authUtils";
+import { sendApiResponse } from "../lib/responseUtils";
 
 /**
  * Handles the retrieval of all unique tags stored in the database globally.
@@ -23,13 +22,22 @@ export const listAllTags = async (c: Context) => {
         // _count: { select: { bookmarks: true } }
       },
     });
-    return c.json(tags);
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Tags retrieved successfully.",
+      data: tags,
+      errors: null,
+      metadata: null,
+    });
   } catch (error: any) {
     console.error("List All Tags Error:", error);
-    return c.json(
-      { error: "Internal Server Error", message: "Failed to retrieve tags." },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to retrieve tags.",
+      data: null,
+      errors: [{ field: "database", message: error.message }], // Example error handling
+      metadata: null,
+    });
   }
 };
 
@@ -43,15 +51,15 @@ export const listAllTags = async (c: Context) => {
 export const listUserTags = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
-    return c.json(
-      {
-        error: "Unauthorized",
-        message: "Authentication required to view your tags.",
-      },
-      401
-    );
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to view your tags.",
+      data: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+      metadata: null,
+    });
   }
-
+  // If user is authenticated, proceed to fetch their tags
   try {
     // Find all unique tags linked to bookmarks owned by the user
     const userTags = await db.tag.findMany({
@@ -76,28 +84,34 @@ export const listUserTags = async (c: Context) => {
       },
     });
 
-    return c.json(userTags);
+    return sendApiResponse(c, {
+      status: 200,
+      message: "User tags retrieved successfully.",
+      data: userTags,
+      errors: null,
+      metadata: null,
+    });
   } catch (error: any) {
     console.error(`List User Tags Error for user ${user.id}:`, error);
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: "Failed to retrieve your tags.",
-      },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to retrieve user tags.",
+      data: null,
+      errors: [{ field: "database", message: error.message }],
+      metadata: null,
+    });
   }
 };
 export const getTagByTagId = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
-    return c.json(
-      {
-        error: "Unauthorized",
-        message: "Authentication required to view this tag.",
-      },
-      401
-    );
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to view this tag.",
+      data: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+      metadata: null,
+    });
   }
   const { id } = c.req.param();
   try {
@@ -124,50 +138,78 @@ export const getTagByTagId = async (c: Context) => {
     });
 
     if (!tag) {
-      return c.json(
-        { error: "Not Found", message: "Tag not found or not accessible." },
-        404
-      );
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Tag not found.",
+        data: null,
+        errors: [{ field: "tag", message: "Tag not found or not accessible." }],
+        metadata: null,
+      });
     }
 
-    return c.json(tag);
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Tag retrieved successfully.",
+      data: tag,
+      errors: null,
+      metadata: null,
+    });
   } catch (error: any) {
     console.error(`Get Tag Error for user ${user.id}:`, error);
-    return c.json(
-      { error: "Internal Server Error", message: "Failed to retrieve tag." },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to retrieve tag.",
+      data: null,
+      errors: [{ field: "database", message: error.message }],
+      metadata: null,
+    });
   }
 };
 
 export const createTag = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
-    return c.json(
-      {
-        error: "Unauthorized",
-        message: "Authentication required to create a tag.",
-      },
-      401
-    );
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to create a tag.",
+      data: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+      metadata: null,
+    });
   }
 
   try {
     const { name } = await c.req.json();
     if (!name) {
-      return c.json(
-        { error: "Bad Request", message: "Tag name is required." },
-        400
-      );
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Tag name is required.",
+        data: null,
+        errors: [{ field: "name", message: "Tag name is required." }],
+        metadata: null,
+      });
     }
 
-    // Check if the tag already exists
-    const existingTag = await db.tag.findUnique({
-      where: { name: name },
+    // Check if the user already has a tag with the same name
+    const existingTag = await db.tag.findFirst({
+      where: {
+        name: name,
+        bookmarks: {
+          some: {
+            userId: user.id,
+          },
+        },
+      },
     });
 
     if (existingTag) {
-      return c.json({ error: "Conflict", message: "Tag already exists." }, 409);
+      return sendApiResponse(c, {
+        status: 409,
+        message: "Tag already exists.",
+        data: null,
+        errors: [{ field: "name", message: "Tag already exists." }],
+        metadata: null,
+      });
     }
 
     // Create the new tag
@@ -182,35 +224,46 @@ export const createTag = async (c: Context) => {
         },
       },
     });
-
-    return c.json(newTag, 201);
+    return sendApiResponse(c, {
+      status: 201,
+      message: "Tag created successfully.",
+      data: newTag,
+      errors: null,
+      metadata: null,
+    });
   } catch (error: any) {
     console.error(`Create Tag Error for user ${user.id}:`, error);
-    return c.json(
-      { error: "Internal Server Error", message: "Failed to create tag." },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to create tag.",
+      data: null,
+      errors: [{ field: "database", message: error.message }],
+      metadata: null,
+    });
   }
 };
 export const updateTag = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
-    return c.json(
-      {
-        error: "Unauthorized",
-        message: "Authentication required to update a tag.",
-      },
-      401
-    );
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to update a tag.",
+      data: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+      metadata: null,
+    });
   }
   const { id } = c.req.param();
   try {
     const { name } = await c.req.json();
     if (!name) {
-      return c.json(
-        { error: "Bad Request", message: "Tag name is required." },
-        400
-      );
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Tag name is required.",
+        data: null,
+        errors: [{ field: "name", message: "Tag name is required." }],
+        metadata: null,
+      });
     }
 
     // Update the tag
@@ -218,27 +271,35 @@ export const updateTag = async (c: Context) => {
       where: { id: id },
       data: { name: name },
     });
-
-    return c.json(updatedTag);
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Tag updated successfully.",
+      data: updatedTag,
+      errors: null,
+      metadata: null,
+    });
   } catch (error: any) {
     console.error(`Update Tag Error for user ${user.id}:`, error);
-    return c.json(
-      { error: "Internal Server Error", message: "Failed to update tag." },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to update tag.",
+      data: null,
+      errors: [{ field: "database", message: error.message }],
+      metadata: null,
+    });
   }
 };
 
 export const deleteTag = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
-    return c.json(
-      {
-        error: "Unauthorized",
-        message: "Authentication required to delete a tag.",
-      },
-      401
-    );
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to delete a tag.",
+      data: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+      metadata: null,
+    });
   }
   const { id } = c.req.param();
   try {
@@ -246,13 +307,22 @@ export const deleteTag = async (c: Context) => {
       where: { id: id },
     });
 
-    return c.json({ message: "Tag deleted successfully." });
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Tag deleted successfully.",
+      data: null,
+      errors: null,
+      metadata: null,
+    });
   } catch (error: any) {
     console.error(`Delete Tag Error for user ${user.id}:`, error);
-    return c.json(
-      { error: "Internal Server Error", message: "Failed to delete tag." },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to delete tag.",
+      data: null,
+      errors: [{ field: "database", message: error.message }],
+      metadata: null,
+    });
   }
 };
 

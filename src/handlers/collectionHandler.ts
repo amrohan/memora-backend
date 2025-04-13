@@ -1,23 +1,38 @@
-// src/handlers/collectionHandler.ts
 import { Context } from "hono";
 import db from "../db";
-import { AuthUser } from "../types";
 import { getAuthUser } from "../lib/authUtils";
+import { sendApiResponse } from "../lib/responseUtils";
 
 // --- Create Collection Handler ---
 export const createCollection = async (c: Context) => {
   const user = getAuthUser(c);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) {
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to create a collection.",
+      data: null,
+      metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+    });
+  }
 
   try {
     const { name } = await c.req.json();
 
     // Basic Validation
     if (!name || typeof name !== "string" || name.trim() === "") {
-      return c.json(
-        { error: "Validation failed", message: "Collection name is required." },
-        400
-      );
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Collection name is required.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "name",
+            message: "Collection name is required.",
+          },
+        ],
+      });
     }
 
     // Check for duplicate collection name for this user
@@ -25,13 +40,18 @@ export const createCollection = async (c: Context) => {
       where: { userId_name: { userId: user.id, name: name.trim() } },
     });
     if (existingCollection) {
-      return c.json(
-        {
-          error: "Conflict",
-          message: "A collection with this name already exists.",
-        },
-        409
-      );
+      return sendApiResponse(c, {
+        status: 409,
+        message: "A collection with this name already exists.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "name",
+            message: "A collection with this name already exists.",
+          },
+        ],
+      });
     }
 
     // Create collection
@@ -42,64 +62,105 @@ export const createCollection = async (c: Context) => {
       },
     });
 
-    return c.json(
-      {
-        message: "Collection created successfully.",
-        collection: newCollection,
-      },
-      201
-    );
+    return sendApiResponse(c, {
+      status: 201,
+      message: "Collection created successfully.",
+      data: newCollection,
+      metadata: null,
+      errors: null,
+    });
   } catch (error: any) {
     console.error("Create Collection Error:", error);
     if (error.code === "P2002") {
       // Prisma unique constraint violation
-      return c.json(
-        {
-          error: "Conflict",
-          message: "A collection with this name likely already exists.",
-        },
-        409
-      );
+      return sendApiResponse(c, {
+        status: 409,
+        message: "A collection with this name already exists.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "name",
+            message: "A collection with this name already exists.",
+          },
+        ],
+      });
     }
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: error.message || "Failed to create collection.",
-      },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to create collection.",
+      data: null,
+      metadata: null,
+      errors: [
+        { field: "server", message: error.message || "Internal Server Error" },
+      ],
+    });
   }
 };
 
 // --- List Collections Handler ---
 export const listCollections = async (c: Context) => {
   const user = getAuthUser(c);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) {
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to create a collection.",
+      data: null,
+      metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+    });
+  }
 
   try {
     const collections = await db.collection.findMany({
       where: { userId: user.id },
       orderBy: { name: "asc" }, // Order alphabetically
-      // Optionally include bookmark count or some bookmarks later
-      // include: { _count: { select: { bookmarks: true } } }
     });
-    return c.json(collections);
+    if (!collections || collections.length === 0) {
+      return sendApiResponse(c, {
+        status: 200,
+        message: "No collections found.",
+        data: [],
+        metadata: null,
+        errors: null,
+      });
+    }
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Collections retrieved successfully.",
+      data: collections,
+      metadata: null,
+      errors: null,
+    });
   } catch (error: any) {
     console.error("List Collections Error:", error);
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: "Failed to retrieve collections.",
-      },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to retrieve collections.",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "Internal Server Error",
+        },
+      ],
+    });
   }
 };
 
 // --- Get Collection Details Handler ---
 export const getCollection = async (c: Context) => {
   const user = getAuthUser(c);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) {
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to create a collection.",
+      data: null,
+      metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+    });
+  }
 
   const { id } = c.req.param();
 
@@ -110,169 +171,288 @@ export const getCollection = async (c: Context) => {
         userId: user.id, // Ensure user owns the collection
       },
       include: {
-        // Optionally include bookmarks in this collection
         bookmarks: {
           orderBy: { createdAt: "desc" },
-          include: { tags: { select: { id: true, name: true } } }, // Include tags for bookmarks
+          include: { tags: { select: { id: true, name: true } } },
         },
       },
     });
 
     if (!collection) {
-      return c.json(
-        {
-          error: "Not Found",
-          message: "Collection not found or you do not have permission.",
-        },
-        404
-      );
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Collection not found.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collection",
+            message:
+              "Collection not found or you do not have permission to view it.",
+          },
+        ],
+      });
     }
-
-    return c.json(collection);
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Collection retrieved successfully.",
+      data: collection,
+      metadata: null,
+      errors: null,
+    });
   } catch (error: any) {
     console.error("Get Collection Error:", error);
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: "Failed to retrieve collection details.",
-      },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to retrieve collection.",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "Internal Server Error",
+        },
+      ],
+    });
   }
 };
 
 // --- Update Collection Handler ---
 export const updateCollection = async (c: Context) => {
   const user = getAuthUser(c);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
-
-  const { id } = c.req.param();
+  if (!user) {
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to create a collection.",
+      data: null,
+      metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+    });
+  }
 
   try {
-    const { name } = await c.req.json();
+    const { id, name } = await c.req.json();
 
-    if (!name || typeof name !== "string" || name.trim() === "") {
-      return c.json(
-        { error: "Validation failed", message: "Collection name is required." },
-        400
-      );
+    if (!id || typeof id !== "string" || id.trim() === "") {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Collection ID is required.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "id",
+            message: "Collection ID is required.",
+          },
+        ],
+      });
     }
 
-    // Check if the new name conflicts with another collection for the same user
+    if (!name || typeof name !== "string" || name.trim() === "") {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Collection name is required.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "name",
+            message: "Collection name is required.",
+          },
+        ],
+      });
+    }
+
     const conflictingCollection = await db.collection.findFirst({
       where: {
         userId: user.id,
         name: name.trim(),
-        id: { not: id }, // Exclude the current collection being updated
+        id: { not: id },
       },
     });
     if (conflictingCollection) {
-      return c.json(
-        {
-          error: "Conflict",
-          message: "Another collection with this name already exists.",
-        },
-        409
-      );
+      return sendApiResponse(c, {
+        status: 409,
+        message: "A collection with this name already exists.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "name",
+            message: "A collection with this name already exists.",
+          },
+        ],
+      });
     }
 
-    // Update the collection - Use updateMany to ensure ownership check
     const updateResult = await db.collection.updateMany({
       where: {
-        id: id,
-        userId: user.id, // Ensure user owns the collection before updating
+        id: id.trim(),
+        userId: user.id,
       },
       data: {
         name: name.trim(),
-        // updatedAt is handled automatically by Prisma @updatedAt
       },
     });
 
     if (updateResult.count === 0) {
-      return c.json(
-        {
-          error: "Not Found",
-          message:
-            "Collection not found or you do not have permission to update it.",
-        },
-        404
-      );
+      return sendApiResponse(c, {
+        status: 404,
+        message:
+          "Collection not found or you do not have permission to update it.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collection",
+            message:
+              "Collection not found or you do not have permission to update it.",
+          },
+        ],
+      });
     }
 
-    // Fetch the updated collection to return it
     const updatedCollection = await db.collection.findUnique({ where: { id } });
 
-    return c.json({
+    if (!updatedCollection) {
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Updated collection not found.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collection",
+            message: "Updated collection not found.",
+          },
+        ],
+      });
+    }
+    return sendApiResponse(c, {
+      status: 200,
       message: "Collection updated successfully.",
-      collection: updatedCollection,
+      data: updatedCollection,
+      metadata: null,
+      errors: null,
     });
   } catch (error: any) {
     console.error("Update Collection Error:", error);
     if (error.code === "P2002") {
-      // Unique constraint potentially on name if check above failed somehow
-      return c.json(
-        {
-          error: "Conflict",
-          message: "A collection with this name may already exist.",
-        },
-        409
-      );
+      return sendApiResponse(c, {
+        status: 409,
+        message: "A collection with this name already exists.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "name",
+            message: "A collection with this name already exists.",
+          },
+        ],
+      });
     }
     if (error.code === "P2025") {
-      // Record to update not found
-      return c.json(
-        { error: "Not Found", message: "Collection to update not found." },
-        404
-      );
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Collection not found.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collection",
+            message: "Collection not found.",
+          },
+        ],
+      });
     }
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: error.message || "Failed to update collection.",
-      },
-      500
-    );
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to update collection.",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "Internal Server Error",
+        },
+      ],
+    });
   }
 };
 
 // --- Delete Collection Handler ---
 export const deleteCollection = async (c: Context) => {
   const user = getAuthUser(c);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) {
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to create a collection.",
+      data: null,
+      metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+    });
+  }
 
   const { id } = c.req.param();
 
   try {
-    // Use deleteMany to ensure we only delete if the userId matches
     const deleteResult = await db.collection.deleteMany({
       where: {
         id: id,
-        userId: user.id, // Crucial security check
+        userId: user.id,
       },
     });
 
     if (deleteResult.count === 0) {
-      return c.json(
-        {
-          error: "Not Found",
-          message:
-            "Collection not found or you do not have permission to delete it.",
-        },
-        404
-      );
+      return sendApiResponse(c, {
+        status: 404,
+        message:
+          "Collection not found or you do not have permission to delete it.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collection",
+            message:
+              "Collection not found or you do not have permission to delete it.",
+          },
+        ],
+      });
     }
-
-    return c.json({ message: "Collection deleted successfully." }, 200); // Or 204 No Content
-    // return c.body(null, 204);
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Collection deleted successfully.",
+      data: null,
+      metadata: null,
+      errors: null,
+    });
   } catch (error: any) {
     console.error("Delete Collection Error:", error);
-    // Handle potential foreign key constraint issues if onDelete: Cascade isn't working as expected (though it should)
-    return c.json(
-      {
-        error: "Internal Server Error",
-        message: error.message || "Failed to delete collection.",
-      },
-      500
-    );
+    if (error.code === "P2025") {
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Collection not found.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collection",
+            message: "Collection not found.",
+          },
+        ],
+      });
+    }
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to delete collection.",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "Internal Server Error",
+        },
+      ],
+    });
   }
 };
