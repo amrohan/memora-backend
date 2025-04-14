@@ -64,23 +64,10 @@ export const listUserTags = async (c: Context) => {
     // Find all unique tags linked to bookmarks owned by the user
     const userTags = await db.tag.findMany({
       where: {
-        // Filter tags where 'bookmarks' relation has 'some' entry...
-        bookmarks: {
-          some: {
-            // ...that belongs to the current user
-            userId: user.id,
-          },
-        },
+        userId: user.id,
       },
       orderBy: {
         name: "asc",
-      },
-      select: {
-        // Select only the necessary fields
-        id: true,
-        name: true,
-        // Optionally include count of *user's* bookmarks with this tag later
-        // _count: { select: { bookmarks: { where: { userId: user.id } } } }
       },
     });
 
