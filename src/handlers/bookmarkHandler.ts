@@ -334,7 +334,7 @@ export const deleteBookmark = async (c: Context) => {
     }
 
     return sendApiResponse(c, {
-      status: 204,
+      status: 200,
       message: "Bookmark deleted successfully.",
       data: null,
       metadata: null,
