@@ -3,6 +3,7 @@ import db from "../db";
 import { fetchMetadata } from "../lib/metadataFetcher";
 import { getAuthUser } from "../lib/authUtils";
 import { sendApiResponse } from "../lib/responseUtils";
+import { Prisma } from "@prisma/client";
 
 export const addBookmark = async (c: Context) => {
   const user = getAuthUser(c);
@@ -360,41 +361,155 @@ export const deleteBookmark = async (c: Context) => {
 
 export const listBookmarks = async (c: Context) => {
   const user = getAuthUser(c);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) {
+    // Using sendApiResponse for consistency, assuming it handles setting status code
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to view bookmarks.",
+      data: null,
+      metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+    });
+  }
 
   try {
+    // 1. Get query parameters for pagination and search
+    const { page, pageSize, search } = c.req.query();
+    const pageNumber = parseInt(page as string) || 1;
+    // Default page size, e.g., 10 bookmarks per page
+    const pageSizeNumber = parseInt(pageSize as string) || 10;
+    const searchQuery = search ? search.trim() : null;
+
+    // 2. Define the base WHERE clause filtering by user
+    const baseWhereClause: Prisma.BookmarkWhereInput = {
+      userId: user.id,
+    };
+
+    let finalWhereClause: Prisma.BookmarkWhereInput = baseWhereClause;
+
+    if (searchQuery) {
+      // NOTE: Using case-sensitive search. Update Prisma and uncomment
+      // 'mode: "insensitive"' lines below for case-insensitive search.
+      finalWhereClause = {
+        ...baseWhereClause,
+        OR: [
+          {
+            title: {
+              contains: searchQuery,
+              // mode: "insensitive", // Uncomment after Prisma update
+            },
+          },
+          {
+            url: {
+              contains: searchQuery,
+              // mode: "insensitive", // Uncomment after Prisma update
+            },
+          },
+          {
+            description: {
+              contains: searchQuery,
+              // mode: "insensitive",
+            },
+          },
+        ],
+      };
+    }
+
+    // 4. Get the TOTAL count of matching bookmarks (without pagination)
+    const totalCount = await db.bookmark.count({
+      where: finalWhereClause, // Use the final where clause
+    });
+
+    // 5. Handle case where no bookmarks are found at all
+    if (totalCount === 0) {
+      return sendApiResponse(c, {
+        status: 200,
+        message: searchQuery
+          ? "No bookmarks found matching your search (case-sensitive)."
+          : "No bookmarks found for this user.",
+        data: [],
+        metadata: {
+          totalCount: 0,
+          page: pageNumber,
+          pageSize: pageSizeNumber,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+          nextPage: null,
+          previousPage: null,
+        },
+        errors: null,
+      });
+    }
+
+    // 6. Calculate pagination metadata based on the *total* count
+    const totalPages = Math.ceil(totalCount / pageSizeNumber);
+    const hasNextPage = pageNumber < totalPages;
+    const hasPreviousPage = pageNumber > 1;
+    const nextPage = hasNextPage ? pageNumber + 1 : null;
+    const previousPage = hasPreviousPage ? pageNumber - 1 : null;
+
+    // 7. Fetch the bookmarks for the CURRENT page
     const bookmarks = await db.bookmark.findMany({
-      where: {
-        userId: user.id,
-      },
+      where: finalWhereClause, // Use the same final where clause
       include: {
+        // Keep includes for related data
         tags: { select: { id: true, name: true } },
         collections: { select: { id: true, name: true } },
       },
       orderBy: {
         createdAt: "desc",
       },
+      skip: (pageNumber - 1) * pageSizeNumber,
+      take: pageSizeNumber,
     });
 
+    // 8. Return the successful response with data and metadata
     return sendApiResponse(c, {
       status: 200,
       message: "Bookmarks retrieved successfully.",
       data: bookmarks,
       metadata: {
-        totalCount: bookmarks.length,
+        totalCount: totalCount,
+        page: pageNumber,
+        pageSize: pageSizeNumber,
+        totalPages: totalPages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        nextPage: nextPage,
+        previousPage: previousPage,
       },
       errors: null,
     });
   } catch (error: any) {
-    sendApiResponse(c, {
+    console.error(`List Bookmarks Error for user ${user.id}:`, error);
+    // Use the consistent error response format
+    // Check for Prisma validation errors specifically if desired
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      console.error("Prisma Validation Error:", error.message);
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Invalid query parameters or filter.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "query",
+            message: "There was an issue with the filter criteria.",
+          },
+        ],
+      });
+    }
+    // General server error
+    return sendApiResponse(c, {
       status: 500,
-      message: "Internal Server Error",
+      message: "Failed to retrieve bookmarks.",
       data: null,
       metadata: null,
       errors: [
         {
           field: "server",
-          message: error.message || "Failed to retrieve bookmarks.",
+          message: error.message || "Internal Server Error",
         },
       ],
     });

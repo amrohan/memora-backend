@@ -3,6 +3,7 @@ import db from "../db"; // Import the Prisma client instance [cite: uploaded:src
 import { AuthUser } from "../types"; // Need this for user-specific tags [cite: uploaded:src/types/index.ts]
 import { getAuthUser } from "../lib/authUtils";
 import { sendApiResponse } from "../lib/responseUtils";
+import { Prisma } from "@prisma/client";
 
 /**
  * Handles the retrieval of all unique tags stored in the database globally.
@@ -50,42 +51,128 @@ export const listAllTags = async (c: Context) => {
  */
 export const listUserTags = async (c: Context) => {
   const user = getAuthUser(c);
+
   if (!user) {
     return sendApiResponse(c, {
       status: 401,
       message: "Authentication required to view your tags.",
       data: null,
-      errors: [{ field: "authentication", message: "Unauthorized" }],
       metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
     });
   }
-  // If user is authenticated, proceed to fetch their tags
+
   try {
-    // Find all unique tags linked to bookmarks owned by the user
+    // 1. Get query parameters
+    const { page, pageSize, search } = c.req.query();
+    const pageNumber = parseInt(page as string) || 1;
+    const pageSizeNumber = parseInt(pageSize as string) || 20;
+    const searchQuery = search ? search.trim() : null;
+
+    // 2. Define the WHERE clause using Prisma types
+    const whereClause: Prisma.TagWhereInput = {
+      // Use Prisma.TagWhereInput type
+      userId: user.id,
+    };
+
+    if (searchQuery) {
+      whereClause.name = {
+        contains: searchQuery,
+      };
+    }
+
+    // 3. Get the TOTAL count of matching tags (CORRECTED)
+    //    Ensure NO 'select' clause is used here for a simple count.
+    const totalCount = await db.tag.count({
+      where: whereClause,
+    });
+
+    // 4. Handle case where no tags are found
+    if (totalCount === 0) {
+      return sendApiResponse(c, {
+        status: 200,
+        message: searchQuery
+          ? "No tags found matching your search."
+          : "No tags found for this user.",
+        data: [],
+        metadata: {
+          totalCount: 0,
+          page: pageNumber,
+          pageSize: pageSizeNumber,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+          nextPage: null,
+          previousPage: null,
+        },
+        errors: null,
+      });
+    }
+
+    // 5. Calculate pagination metadata
+    const totalPages = Math.ceil(totalCount / pageSizeNumber);
+    const hasNextPage = pageNumber < totalPages;
+    const hasPreviousPage = pageNumber > 1;
+    const nextPage = hasNextPage ? pageNumber + 1 : null;
+    const previousPage = hasPreviousPage ? pageNumber - 1 : null;
+
+    // 6. Fetch the tags for the CURRENT page
     const userTags = await db.tag.findMany({
-      where: {
-        userId: user.id,
-      },
+      where: whereClause, // Use the same where clause
       orderBy: {
         name: "asc",
       },
+      skip: (pageNumber - 1) * pageSizeNumber,
+      take: pageSizeNumber,
     });
 
+    // 7. Return the successful response
     return sendApiResponse(c, {
       status: 200,
       message: "User tags retrieved successfully.",
       data: userTags,
+      metadata: {
+        totalCount: totalCount,
+        page: pageNumber,
+        pageSize: pageSizeNumber,
+        totalPages: totalPages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        nextPage: nextPage,
+        previousPage: previousPage,
+      },
       errors: null,
-      metadata: null,
     });
   } catch (error: any) {
     console.error(`List User Tags Error for user ${user.id}:`, error);
+    // Check if it's a Prisma validation error
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      console.error("Prisma Validation Error:", error.message);
+      return sendApiResponse(c, {
+        status: 400, // Bad Request might be more appropriate
+        message: "Invalid query parameters or filter.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "query",
+            message: "There was an issue with the filter criteria.",
+          },
+        ],
+      });
+    }
+    // General server error
     return sendApiResponse(c, {
       status: 500,
       message: "Failed to retrieve user tags.",
       data: null,
-      errors: [{ field: "database", message: error.message }],
       metadata: null,
+      errors: [
+        {
+          field: "database",
+          message: error.message || "Internal Server Error",
+        },
+      ],
     });
   }
 };

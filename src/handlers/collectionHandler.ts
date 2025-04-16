@@ -2,6 +2,7 @@ import { Context } from "hono";
 import db from "../db";
 import { getAuthUser } from "../lib/authUtils";
 import { sendApiResponse } from "../lib/responseUtils";
+import { Prisma } from "@prisma/client";
 
 // --- Create Collection Handler ---
 export const createCollection = async (c: Context) => {
@@ -101,10 +102,11 @@ export const createCollection = async (c: Context) => {
 // --- List Collections Handler ---
 export const listCollections = async (c: Context) => {
   const user = getAuthUser(c);
+
   if (!user) {
     return sendApiResponse(c, {
       status: 401,
-      message: "Authentication required to create a collection.",
+      message: "Authentication required to list collections.",
       data: null,
       metadata: null,
       errors: [{ field: "authentication", message: "Unauthorized" }],
@@ -112,24 +114,86 @@ export const listCollections = async (c: Context) => {
   }
 
   try {
-    const collections = await db.collection.findMany({
-      where: { userId: user.id },
-      orderBy: { name: "asc" }, // Order alphabetically
+    // 1. Get query parameters
+    const { page, pageSize, search } = c.req.query();
+    const pageNumber = parseInt(page as string) || 1;
+    const pageSizeNumber = parseInt(pageSize as string) || 10;
+    const searchQuery = search ? search.trim() : null;
+
+    // 2. Define the base WHERE clause for filtering
+    const whereClause: Prisma.CollectionWhereInput = {
+      // Use 'any' or define a proper Prisma WhereInput type
+      userId: user.id,
+    };
+
+    if (searchQuery) {
+      whereClause.name = {
+        contains: searchQuery,
+      };
+    }
+
+    // 3. Get the TOTAL count of matching records (without pagination)
+    const totalCount = await db.collection.count({
+      where: whereClause,
     });
-    if (!collections || collections.length === 0) {
+
+    // 4. Handle case where no collections are found at all
+    if (totalCount === 0) {
       return sendApiResponse(c, {
         status: 200,
-        message: "No collections found.",
+        message: searchQuery
+          ? "No collections found matching your search."
+          : "No collections found.",
         data: [],
-        metadata: null,
+        metadata: {
+          totalCount: 0,
+          page: pageNumber,
+          pageSize: pageSizeNumber,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+          nextPage: null,
+          previousPage: null,
+        },
         errors: null,
       });
     }
+
+    // 5. Calculate pagination metadata based on the *total* count
+    const totalPages = Math.ceil(totalCount / pageSizeNumber);
+    const hasNextPage = pageNumber < totalPages;
+    const hasPreviousPage = pageNumber > 1;
+    const nextPage = hasNextPage ? pageNumber + 1 : null;
+    const previousPage = hasPreviousPage ? pageNumber - 1 : null;
+
+    // 6. Fetch the collections for the CURRENT page
+    const collections = await db.collection.findMany({
+      where: whereClause,
+      orderBy: { name: "asc" },
+      skip: (pageNumber - 1) * pageSizeNumber,
+      take: pageSizeNumber,
+    });
+
+    // Note: We don't need the `if (!collections || collections.length === 0)` check here
+    // anymore because we already handled the `totalCount === 0` case.
+    // If totalCount > 0, but this specific page is empty (e.g., page=100 but only 50 items exist),
+    // it's still a valid scenario, and we should return an empty array for `data`.
+
+    // 7. Return the successful response with correct metadata
     return sendApiResponse(c, {
       status: 200,
       message: "Collections retrieved successfully.",
-      data: collections,
-      metadata: null,
+      data: collections, // This might be empty if requested page is beyond totalPages
+      metadata: {
+        totalCount: totalCount, // Use the actual total count
+        page: pageNumber,
+        pageSize: pageSizeNumber,
+        totalPages: totalPages, // Use calculated total pages
+        hasNextPage: hasNextPage, // Use calculated value
+        hasPreviousPage: hasPreviousPage, // Use calculated value
+        nextPage: nextPage, // Use calculated value
+        previousPage: previousPage, // Use calculated value
+      },
       errors: null,
     });
   } catch (error: any) {
