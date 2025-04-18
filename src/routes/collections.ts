@@ -3,6 +3,7 @@ import { authMiddleware } from "../middleware/authMiddleware";
 import {
   createCollection,
   deleteCollection,
+  getBookmarksByCollection,
   listCollections,
   updateCollection,
 } from "../handlers/collectionHandler";
@@ -15,6 +16,8 @@ collectionRoute.use("*", authMiddleware);
 collectionRoute.get("/", listCollections);
 // GET /collections/:id -> Get details of a specific collection
 collectionRoute.get("/:id", listCollections);
+// GET /collections/:id/bookmarks -> Get bookmarks in a specific collection
+collectionRoute.get("/:id/bookmarks", getBookmarksByCollection);
 // POST /collections -> Create a new collection
 collectionRoute.post("/", createCollection);
 // PUT /collections/:id -> Update a collection (name)

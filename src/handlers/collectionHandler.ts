@@ -213,6 +213,73 @@ export const listCollections = async (c: Context) => {
   }
 };
 
+// --- Get Bookmarks by collections  Handler ---
+export const getBookmarksByCollection = async (c: Context) => {
+  const user = getAuthUser(c);
+  if (!user) {
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to create a collection.",
+      data: null,
+      metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+    });
+  }
+
+  const { collectionId } = c.req.param();
+
+  try {
+    const bookmarks = await db.bookmark.findMany({
+      where: {
+        userId: user.id,
+        collections: {
+          some: {
+            id: collectionId,
+          },
+        },
+      },
+      include: { tags: { select: { id: true, name: true } } },
+    });
+
+    if (!bookmarks) {
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Bookmarks not found.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "bookmarks",
+            message:
+              "Bookmarks not found or you do not have permission to view them.",
+          },
+        ],
+      });
+    }
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Bookmarks retrieved successfully.",
+      data: bookmarks,
+      metadata: null,
+      errors: null,
+    });
+  } catch (error: any) {
+    console.error("Get Bookmarks Error:", error);
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Failed to retrieve bookmarks.",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "Internal Server Error",
+        },
+      ],
+    });
+  }
+};
+
 // --- Get Collection Details Handler ---
 export const getCollection = async (c: Context) => {
   const user = getAuthUser(c);
