@@ -1,6 +1,6 @@
 import { Context, Next } from "hono";
 import { verifyToken } from "../lib/authUtils";
-import { AuthUser, JwtPayload } from "../types";
+import { AuthUser } from "../types";
 
 export const authMiddleware = async (c: Context, next: Next) => {
   const authHeader = c.req.header("Authorization");
@@ -8,7 +8,7 @@ export const authMiddleware = async (c: Context, next: Next) => {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return c.json(
       { error: "Unauthorized", message: "Bearer token is missing or invalid." },
-      401,
+      401
     );
   }
 
@@ -22,7 +22,7 @@ export const authMiddleware = async (c: Context, next: Next) => {
   if (!decodedPayload) {
     return c.json(
       { error: "Unauthorized", message: "Invalid or expired token." },
-      401,
+      401
     );
   }
 

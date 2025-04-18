@@ -5,7 +5,8 @@ import {
   getBookmark,
   updateBookmark,
   deleteBookmark,
-  listBookmarks, // Can use the list handler here too if desired for GET /
+  listBookmarks,
+  getTotalBookmarksCount, // Can use the list handler here too if desired for GET /
 } from "../handlers/bookmarkHandler";
 
 const bookmarkRoutes = new Hono();
@@ -18,6 +19,9 @@ bookmarkRoutes.get("/", listBookmarks); // Reuse dashboard logic
 
 // POST /bookmarks -> Add a new bookmark (fetches metadata)
 bookmarkRoutes.post("/", addBookmark);
+
+//Get count of bookmarks
+bookmarkRoutes.get("/count", getTotalBookmarksCount);
 
 // GET /bookmarks/:id -> Get details of a specific bookmark
 bookmarkRoutes.get("/:id", getBookmark);
