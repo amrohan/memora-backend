@@ -102,7 +102,15 @@ export const addBookmark = async (c: Context) => {
 
 export const getBookmark = async (c: Context) => {
   const user = getAuthUser(c);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) {
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to view bookmarks.",
+      data: null,
+      metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+    });
+  }
 
   const { id } = c.req.param();
 
