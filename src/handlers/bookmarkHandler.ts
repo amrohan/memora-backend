@@ -168,7 +168,15 @@ export const getBookmark = async (c: Context) => {
 
 export const updateBookmark = async (c: Context) => {
   const user = getAuthUser(c);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!user) {
+    return sendApiResponse(c, {
+      status: 401,
+      message: "Authentication required to view bookmarks.",
+      data: null,
+      metadata: null,
+      errors: [{ field: "authentication", message: "Unauthorized" }],
+    });
+  }
 
   const { id } = c.req.param();
 
@@ -176,6 +184,7 @@ export const updateBookmark = async (c: Context) => {
     const { title, description, imageUrl, tags, collections } =
       await c.req.json();
 
+    // Validate tags format
     if (tags && !Array.isArray(tags)) {
       return sendApiResponse(c, {
         status: 400,
@@ -191,6 +200,7 @@ export const updateBookmark = async (c: Context) => {
       });
     }
 
+    // Validate collections format
     if (collections && !Array.isArray(collections)) {
       return sendApiResponse(c, {
         status: 400,
@@ -206,8 +216,13 @@ export const updateBookmark = async (c: Context) => {
       });
     }
 
+    // Check if bookmark exists and belongs to the user
     const existingBookmark = await db.bookmark.findUnique({
       where: { id: id, userId: user.id },
+      include: {
+        tags: true,
+        collections: true,
+      },
     });
 
     if (!existingBookmark) {
@@ -225,13 +240,7 @@ export const updateBookmark = async (c: Context) => {
       });
     }
 
-    const tagConnectOrCreateOps = tags
-      ? tags.map((tagName: { id: string; name: string }) => ({
-          where: { name: tagName.name.trim().toLowerCase() },
-          create: { name: tagName.name.trim().toLowerCase() },
-        }))
-      : [];
-
+    // Process collections - validate they belong to the user
     let validCollectionIds: string[] = [];
     if (collections && collections.length > 0) {
       const userCollections = await db.collection.findMany({
@@ -243,30 +252,78 @@ export const updateBookmark = async (c: Context) => {
       });
       validCollectionIds = userCollections.map((col) => col.id);
     }
-    const collectionConnectOps = validCollectionIds.map((colId) => ({
-      id: colId,
-    }));
 
+    // Prepare update data
+    const updateData: any = {
+      title: title ?? existingBookmark.title,
+      description: description ?? existingBookmark.description,
+      imageUrl: imageUrl ?? existingBookmark.imageUrl,
+    };
+
+    // Handle collections update
+    if (collections !== undefined) {
+      updateData.collections = {
+        set: validCollectionIds.map((id) => ({ id })),
+      };
+    }
+
+    // Handle tags update - Fixed approach
+    if (tags !== undefined) {
+      // First disconnect all existing tags
+      updateData.tags = {
+        disconnect: existingBookmark.tags.map((tag) => ({ id: tag.id })),
+      };
+
+      // Process and connect new tags
+      const tagPromises = tags.map(
+        async (tag: { id?: string; name: string }) => {
+          const tagName = tag.name.trim().toLowerCase();
+
+          // If tag has an ID, try to connect to it first
+          if (tag.id) {
+            const existingTag = await db.tag.findUnique({
+              where: { id: tag.id },
+            });
+
+            if (existingTag) {
+              return { id: existingTag.id };
+            }
+          }
+
+          // Otherwise look up by name or create new
+          const existingTag = await db.tag.findFirst({
+            where: { name: tagName, userId: user.id },
+          });
+
+          if (existingTag) {
+            return { id: existingTag.id };
+          } else {
+            const newTag = await db.tag.create({
+              data: {
+                name: tagName,
+                userId: user.id,
+              },
+            });
+            return { id: newTag.id };
+          }
+        }
+      );
+
+      const tagConnections = await Promise.all(tagPromises);
+
+      // Update the tags connect operation
+      updateData.tags = {
+        ...updateData.tags,
+        connect: tagConnections,
+      };
+    }
+
+    // Update the bookmark
     const updatedBookmark = await db.bookmark.update({
       where: {
         id: id,
       },
-      data: {
-        title: title ?? existingBookmark.title,
-        description: description ?? existingBookmark.description,
-        imageUrl: imageUrl ?? existingBookmark.imageUrl,
-        tags: {
-          set:
-            tagConnectOrCreateOps.length > 0
-              ? tagConnectOrCreateOps.map((op: any) => ({
-                  name: op.create.name,
-                }))
-              : [],
-        },
-        collections: {
-          set: collectionConnectOps,
-        },
-      },
+      data: updateData,
       include: {
         tags: { select: { id: true, name: true } },
         collections: { select: { id: true, name: true } },
@@ -297,6 +354,7 @@ export const updateBookmark = async (c: Context) => {
         ],
       });
     }
+
     return sendApiResponse(c, {
       status: 500,
       message: "Internal Server Error",
