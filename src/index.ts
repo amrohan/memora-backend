@@ -22,11 +22,11 @@ app.use(
     exposeHeaders: ["Content-Length", "X-Kuma-Revision"],
     maxAge: 600,
     credentials: true,
-  }),
+  })
 );
 
 // --- Routing ---
-app.get("/", (c) => c.text("Bookmark Manager API - Welcome!")); // Root endpoint
+app.get("/", (c) => c.text("Bookmark Manager API - Welcome!"));
 
 // Mount API route groups
 app.route("/api", routesHandler);
@@ -38,7 +38,7 @@ app.notFound((c) => {
       error: "Not Found",
       message: `The route ${c.req.method} ${c.req.path} does not exist.`,
     },
-    404,
+    404
   );
 });
 
@@ -63,7 +63,7 @@ const getCurrentIndianTime = () => {
   } catch (e) {
     // Fallback if timezone data is unavailable in some minimal environments
     console.warn(
-      "Could not format time for Asia/Kolkata timezone, using default locale.",
+      "Could not format time for Asia/Kolkata timezone, using default locale."
     );
     return new Date().toLocaleString();
   }
