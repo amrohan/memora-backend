@@ -53,6 +53,7 @@ model Tag {
 model Collection {
   id        String   @id @default(cuid())
   name      String
+  isSystem  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -375,21 +375,66 @@ export const deleteTag = async (c: Context) => {
       metadata: null,
     });
   }
+
   const { id } = c.req.param();
+
   try {
+    // 1. Find the tag
+    const tag = await db.tag.findUnique({
+      where: { id },
+    });
+
+    if (!tag || tag.userId !== user.id) {
+      return sendApiResponse(c, {
+        status: 404,
+        message: "Tag not found or permission denied.",
+        data: null,
+        errors: [
+          { field: "tag", message: "Tag not found or permission denied." },
+        ],
+        metadata: null,
+      });
+    }
+
+    // 2. Find all bookmarks connected to this tag
+    const bookmarks = await db.bookmark.findMany({
+      where: {
+        tags: {
+          some: { id },
+        },
+      },
+      select: { id: true }, // we only need IDs
+    });
+
+    // 3. Disconnect the tag from each bookmark
+    await Promise.all(
+      bookmarks.map((bookmark) =>
+        db.bookmark.update({
+          where: { id: bookmark.id },
+          data: {
+            tags: {
+              disconnect: { id },
+            },
+          },
+        })
+      )
+    );
+
+    // 4. Now delete the tag
     await db.tag.delete({
-      where: { id: id },
+      where: { id },
     });
 
     return sendApiResponse(c, {
       status: 200,
-      message: "Tag deleted successfully.",
+      message: "Tag deleted successfully and removed from bookmarks.",
       data: null,
       errors: null,
       metadata: null,
     });
   } catch (error: any) {
     console.error(`Delete Tag Error for user ${user.id}:`, error);
+
     return sendApiResponse(c, {
       status: 500,
       message: "Failed to delete tag.",

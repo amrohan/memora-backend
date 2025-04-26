@@ -364,6 +364,22 @@ export const updateCollection = async (c: Context) => {
   try {
     const { id, name } = await c.req.json();
 
+    // --- Prevent renaming "Unsorted" ---
+    if (name.trim().toLowerCase() === "unsorted") {
+      return sendApiResponse(c, {
+        status: 403,
+        message: "Cannot rename the default 'Unsorted' collection.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collection",
+            message: "Cannot rename 'Unsorted' collection.",
+          },
+        ],
+      });
+    }
+
     if (!id || typeof id !== "string" || id.trim() === "") {
       return sendApiResponse(c, {
         status: 400,
@@ -517,7 +533,7 @@ export const deleteCollection = async (c: Context) => {
   if (!user) {
     return sendApiResponse(c, {
       status: 401,
-      message: "Authentication required to create a collection.",
+      message: "Authentication required to delete a collection.",
       data: null,
       metadata: null,
       errors: [{ field: "authentication", message: "Unauthorized" }],
@@ -527,14 +543,12 @@ export const deleteCollection = async (c: Context) => {
   const { id } = c.req.param();
 
   try {
-    const deleteResult = await db.collection.deleteMany({
-      where: {
-        id: id,
-        userId: user.id,
-      },
+    // Fetch the collection to be deleted
+    const collection = await db.collection.findUnique({
+      where: { id },
     });
 
-    if (deleteResult.count === 0) {
+    if (!collection || collection.userId !== user.id) {
       return sendApiResponse(c, {
         status: 404,
         message:
@@ -544,21 +558,90 @@ export const deleteCollection = async (c: Context) => {
         errors: [
           {
             field: "collection",
-            message:
-              "Collection not found or you do not have permission to delete it.",
+            message: "Collection not found or permission denied.",
           },
         ],
       });
     }
+
+    if (collection.name.trim().toLowerCase() === "unsorted") {
+      return sendApiResponse(c, {
+        status: 403,
+        message: "Cannot delete the default 'Unsorted' collection.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collection",
+            message: "Cannot delete the 'Unsorted' collection.",
+          },
+        ],
+      });
+    }
+
+    // Find user's Unsorted collection
+    const unsortedCollection = await db.collection.findFirst({
+      where: {
+        userId: user.id,
+        isSystem: true,
+      },
+    });
+
+    if (!unsortedCollection) {
+      return sendApiResponse(c, {
+        status: 500,
+        message: "Default 'Unsorted' collection not found for user.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "collection",
+            message:
+              "'Unsorted' collection missing. Cannot reassign bookmarks.",
+          },
+        ],
+      });
+    }
+
+    // Find all bookmarks attached to this collection
+    const bookmarks = await db.bookmark.findMany({
+      where: {
+        collections: {
+          some: { id },
+        },
+      },
+      select: { id: true },
+    });
+
+    await db.$transaction([
+      // Disconnect and Reconnect each bookmark
+      ...bookmarks.map((bookmark) =>
+        db.bookmark.update({
+          where: { id: bookmark.id },
+          data: {
+            collections: {
+              disconnect: [{ id }], // Remove from the deleted collection
+              connect: [{ id: unsortedCollection.id }], // Add to Unsorted
+            },
+          },
+        })
+      ),
+      // Now delete the collection
+      db.collection.delete({
+        where: { id },
+      }),
+    ]);
+
     return sendApiResponse(c, {
       status: 200,
-      message: "Collection deleted successfully.",
+      message: "Collection deleted and bookmarks moved to 'Unsorted'.",
       data: null,
       metadata: null,
       errors: null,
     });
   } catch (error: any) {
     console.error("Delete Collection Error:", error);
+
     if (error.code === "P2025") {
       return sendApiResponse(c, {
         status: 404,
@@ -573,6 +656,7 @@ export const deleteCollection = async (c: Context) => {
         ],
       });
     }
+
     return sendApiResponse(c, {
       status: 500,
       message: "Failed to delete collection.",

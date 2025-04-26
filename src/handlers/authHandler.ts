@@ -73,6 +73,9 @@ export const registerUser = async (c: Context) => {
       },
     });
 
+    // seed defualt collection and tags
+    await seedUserData(newUser.id);
+
     // Generate JWT
     const payload: JwtPayload = { userId: newUser.id, email: newUser.email };
     const token = generateToken(payload);
@@ -186,4 +189,27 @@ export const loginUser = async (c: Context) => {
       ],
     });
   }
+};
+
+const seedUserData = async (userId: string) => {
+  const defaultCollections = ["Unsorted"];
+  const defaultTags = ["Read Later", "Important", "Favorites"];
+
+  const createCollections = defaultCollections.map((name) =>
+    db.collection.create({
+      data: {
+        name: "Unsorted",
+        userId: userId,
+        isSystem: true,
+      },
+    })
+  );
+
+  const createTags = defaultTags.map((name) =>
+    db.tag.create({
+      data: { name, userId },
+    })
+  );
+
+  await Promise.all([...createCollections, ...createTags]);
 };
