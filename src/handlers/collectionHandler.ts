@@ -2,7 +2,7 @@ import { Context } from "hono";
 import db from "../db";
 import { getAuthUser } from "../lib/authUtils";
 import { sendApiResponse } from "../lib/responseUtils";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../../generated/prisma";
 
 // --- Create Collection Handler ---
 export const createCollection = async (c: Context) => {

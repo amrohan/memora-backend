@@ -16,6 +16,7 @@ lerna-debug.log*
 prisma/dev.db
 prisma/dev.db-journal*
 prisma/migrations/*.sql
+generated/prisma
 
 # TypeScript compilation artifacts
 *.tsbuildinfo

@@ -3,7 +3,7 @@ import db from "../db";
 import { fetchMetadata } from "../lib/metadataFetcher";
 import { getAuthUser } from "../lib/authUtils";
 import { sendApiResponse } from "../lib/responseUtils";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../../generated/prisma";
 
 // export const addBookmark = async (c: Context) => {
 //   const user = getAuthUser(c);

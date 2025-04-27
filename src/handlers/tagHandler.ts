@@ -3,7 +3,7 @@ import db from "../db"; // Import the Prisma client instance [cite: uploaded:src
 import { AuthUser } from "../types"; // Need this for user-specific tags [cite: uploaded:src/types/index.ts]
 import { getAuthUser } from "../lib/authUtils";
 import { sendApiResponse } from "../lib/responseUtils";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../../generated/prisma";
 
 /**
  * Handles the retrieval of all unique tags stored in the database globally.
