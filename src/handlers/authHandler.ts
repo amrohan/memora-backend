@@ -198,7 +198,7 @@ const seedUserData = async (userId: string) => {
   const createCollections = defaultCollections.map((name) =>
     db.collection.create({
       data: {
-        name: "Unsorted",
+        name: name,
         userId: userId,
         isSystem: true,
       },

@@ -364,8 +364,12 @@ export const updateCollection = async (c: Context) => {
   try {
     const { id, name } = await c.req.json();
 
+    const collection = await db.collection.findUnique({
+      where: { id },
+    });
+
     // --- Prevent renaming "Unsorted" ---
-    if (name.trim().toLowerCase() === "unsorted") {
+    if (collection?.isSystem) {
       return sendApiResponse(c, {
         status: 403,
         message: "Cannot rename the default 'Unsorted' collection.",
