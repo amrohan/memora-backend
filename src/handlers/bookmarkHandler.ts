@@ -5,101 +5,6 @@ import { getAuthUser } from "../lib/authUtils";
 import { sendApiResponse } from "../lib/responseUtils";
 import { Prisma } from "../../generated/prisma";
 
-// export const addBookmark = async (c: Context) => {
-//   const user = getAuthUser(c);
-//   if (!user) return c.json({ error: "Unauthorized" }, 401);
-
-//   try {
-//     const { url } = await c.req.json();
-
-//     if (!url || typeof url !== "string") {
-//       return sendApiResponse(c, {
-//         status: 400,
-//         message: "Bad Request",
-//         data: null,
-//         metadata: null,
-//         errors: [
-//           {
-//             field: "url",
-//             message: "URL is required and must be a valid string.",
-//           },
-//         ],
-//       });
-//     }
-
-//     const existingBookmark = await db.bookmark.findUnique({
-//       where: { userId_url: { userId: user.id, url: url } },
-//     });
-//     if (existingBookmark) {
-//       return sendApiResponse(c, {
-//         status: 409,
-//         message: "Conflict",
-//         data: null,
-//         metadata: null,
-//         errors: [
-//           {
-//             field: "url",
-//             message: "Bookmark with this URL already exists.",
-//           },
-//         ],
-//       });
-//     }
-
-//     const metadata = await fetchMetadata(url);
-
-//     const newBookmark = await db.bookmark.create({
-//       data: {
-//         url: url,
-//         title: metadata.title || url.substring(0, 100),
-//         description: metadata.description,
-//         imageUrl: metadata.imageUrl,
-//         userId: user.id,
-//       },
-
-//       include: { tags: true, collections: true },
-//     });
-
-//     return sendApiResponse(c, {
-//       status: 201,
-//       message: "Bookmark added successfully.",
-//       data: newBookmark,
-//       metadata: null,
-//       errors: null,
-//     });
-//   } catch (error: any) {
-//     console.error("Add Bookmark Error:", error);
-
-//     if (error.code === "P2002") {
-//       return sendApiResponse(c, {
-//         status: 409,
-//         message: "Conflict",
-//         data: null,
-//         metadata: null,
-//         errors: [
-//           {
-//             field: "url",
-//             message: "Bookmark with this URL already exists.",
-//           },
-//         ],
-//       });
-//     }
-//     return sendApiResponse(c, {
-//       status: 500,
-//       message: "Internal Server Error",
-//       data: null,
-//       metadata: null,
-//       errors: [
-//         {
-//           field: "server",
-//           message:
-//             error.message ||
-//             "Failed to create bookmark. Please try again later.",
-//         },
-//       ],
-//     });
-//   }
-// };
-
 export const addBookmark = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) return c.json({ error: "Unauthorized" }, 401);
@@ -145,11 +50,22 @@ export const addBookmark = async (c: Context) => {
     // Fetch URL metadata
     const metadata = await fetchMetadata(url);
 
-    // Find the user's "Unsorted" collection
-    const unsortedCollection = await db.collection.findFirst({
+    const recentCollection = await db.collection.findFirst({
       where: {
         userId: user.id,
-        name: "Unsorted",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // Find the most recently created tag by user
+    const recentTag = await db.tag.findFirst({
+      where: {
+        userId: user.id,
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 
@@ -161,13 +77,20 @@ export const addBookmark = async (c: Context) => {
         description: metadata.description,
         imageUrl: metadata.imageUrl,
         userId: user.id,
-        collections: unsortedCollection
+        collections: recentCollection
           ? {
               connect: {
-                id: unsortedCollection.id,
+                id: recentCollection.id,
               },
             }
           : undefined, // if "Unsorted" doesn't exist, skip
+        tags: recentTag
+          ? {
+              connect: {
+                id: recentTag.id,
+              },
+            }
+          : undefined,
       },
       include: { tags: true, collections: true },
     });
