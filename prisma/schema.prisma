@@ -44,11 +44,13 @@ model Bookmark {
 
 model Tag {
   id        String     @id @default(cuid())
-  name      String     @unique // Global unique tags
+  name      String
   createdAt DateTime   @default(now())
   bookmarks Bookmark[] @relation("BookmarkTags")
   userId    String
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
 }
 
 model Collection {

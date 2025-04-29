@@ -205,6 +205,26 @@ const seedUserData = async (userId: string) => {
     })
   );
 
+  // Run this once, before the schema change
+  const tags = await db.tag.findMany({
+    include: { user: true },
+  });
+
+  for (const tag of tags) {
+    const userId = tag.userId;
+    const name = tag.name;
+
+    const existing = await db.tag.findFirst({ where: { userId, name } });
+    if (existing) continue;
+
+    // If not exists, clone it for the user
+    await db.tag.create({
+      data: {
+        name,
+        userId,
+      },
+    });
+  }
   const createTags = defaultTags.map((name) =>
     db.tag.create({
       data: { name, userId },
