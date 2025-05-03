@@ -62,6 +62,7 @@ export const addBookmark = async (c: Context) => {
       },
     });
 
+    // doing for user efficiency
     const defaultCollection = recentBookmark?.collections?.[0];
     const defaultTag = recentBookmark?.tags?.[0];
 
@@ -337,7 +338,7 @@ export const updateBookmark = async (c: Context) => {
             });
             return { id: newTag.id };
           }
-        }
+        },
       );
 
       const tagConnections = await Promise.all(tagPromises);
@@ -610,7 +611,7 @@ export const listBookmarks = async (c: Context) => {
   } catch (error: any) {
     console.error(
       `List Bookmarks Error for user ${user?.id || "unauthenticated"}:`,
-      error
+      error,
     );
     if (error instanceof Prisma.PrismaClientValidationError) {
       console.error("Prisma Validation Error:", error.message);
