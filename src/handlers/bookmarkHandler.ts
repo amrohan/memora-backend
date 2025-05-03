@@ -27,7 +27,6 @@ export const addBookmark = async (c: Context) => {
       });
     }
 
-    // Check if the bookmark already exists for the user
     const existingBookmark = await db.bookmark.findUnique({
       where: { userId_url: { userId: user.id, url: url } },
     });
@@ -47,29 +46,25 @@ export const addBookmark = async (c: Context) => {
       });
     }
 
-    // Fetch URL metadata
     const metadata = await fetchMetadata(url);
 
-    const recentCollection = await db.collection.findFirst({
+    // Find the most recently created bookmark by the user
+    const recentBookmark = await db.bookmark.findFirst({
       where: {
         userId: user.id,
       },
       orderBy: {
         createdAt: "desc",
       },
-    });
-
-    // Find the most recently created tag by user
-    const recentTag = await db.tag.findFirst({
-      where: {
-        userId: user.id,
-      },
-      orderBy: {
-        createdAt: "desc",
+      include: {
+        collections: true,
+        tags: true,
       },
     });
 
-    // Create the new bookmark and assign it to "Unsorted" collection
+    const defaultCollection = recentBookmark?.collections?.[0];
+    const defaultTag = recentBookmark?.tags?.[0];
+
     const newBookmark = await db.bookmark.create({
       data: {
         url: url,
@@ -77,19 +72,19 @@ export const addBookmark = async (c: Context) => {
         description: metadata.description,
         imageUrl: metadata.imageUrl,
         userId: user.id,
-        collections: recentCollection
+        collections: defaultCollection
           ? {
-              connect: {
-                id: recentCollection.id,
-              },
-            }
-          : undefined, // if "Unsorted" doesn't exist, skip
-        tags: recentTag
+            connect: {
+              id: defaultCollection.id,
+            },
+          }
+          : undefined,
+        tags: defaultTag
           ? {
-              connect: {
-                id: recentTag.id,
-              },
-            }
+            connect: {
+              id: defaultTag.id,
+            },
+          }
           : undefined,
       },
       include: { tags: true, collections: true },
@@ -106,7 +101,6 @@ export const addBookmark = async (c: Context) => {
     console.error("Add Bookmark Error:", error);
 
     if (error.code === "P2002") {
-      // Prisma duplicate key error
       return sendApiResponse(c, {
         status: 409,
         message: "Conflict",
@@ -137,7 +131,6 @@ export const addBookmark = async (c: Context) => {
     });
   }
 };
-
 export const getBookmark = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
@@ -490,16 +483,16 @@ export const listBookmarks = async (c: Context) => {
     const rawCollectionId = collectionId as string | undefined;
     const filterCollectionId =
       rawCollectionId &&
-      rawCollectionId.trim() !== "" &&
-      rawCollectionId.toLowerCase() !== "undefined"
+        rawCollectionId.trim() !== "" &&
+        rawCollectionId.toLowerCase() !== "undefined"
         ? rawCollectionId.trim()
         : null;
 
     const rawTagId = tagId as string | undefined;
     const filterTagId =
       rawTagId &&
-      rawTagId.trim() !== "" &&
-      rawTagId.toLowerCase() !== "undefined"
+        rawTagId.trim() !== "" &&
+        rawTagId.toLowerCase() !== "undefined"
         ? rawTagId.trim()
         : null;
 
