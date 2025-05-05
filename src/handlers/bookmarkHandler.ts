@@ -27,6 +27,9 @@ export const addBookmark = async (c: Context) => {
       });
     }
 
+    const cleanUrl = new URL(url);
+    cleanUrl.searchParams.delete("ref");
+
     const existingBookmark = await db.bookmark.findUnique({
       where: { userId_url: { userId: user.id, url: url } },
     });
