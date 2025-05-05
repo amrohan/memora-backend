@@ -27,11 +27,14 @@ export const addBookmark = async (c: Context) => {
       });
     }
 
+    // Clean the URL
     const cleanUrl = new URL(url);
     cleanUrl.searchParams.delete("ref");
+    const finalUrl = cleanUrl.toString();
 
+    // Check for existing bookmark using cleaned URL
     const existingBookmark = await db.bookmark.findUnique({
-      where: { userId_url: { userId: user.id, url: url } },
+      where: { userId_url: { userId: user.id, url: finalUrl } },
     });
 
     if (existingBookmark) {
@@ -49,9 +52,9 @@ export const addBookmark = async (c: Context) => {
       });
     }
 
-    const metadata = await fetchMetadata(url);
+    const metadata = await fetchMetadata(finalUrl);
 
-    // Find the most recently created bookmark by the user
+    // Get most recent bookmark for default collection/tag
     const recentBookmark = await db.bookmark.findFirst({
       where: {
         userId: user.id,
@@ -65,14 +68,13 @@ export const addBookmark = async (c: Context) => {
       },
     });
 
-    // doing for user efficiency
     const defaultCollection = recentBookmark?.collections?.[0];
     const defaultTag = recentBookmark?.tags?.[0];
 
     const newBookmark = await db.bookmark.create({
       data: {
-        url: url,
-        title: metadata.title || url.substring(0, 100),
+        url: finalUrl,
+        title: metadata.title || finalUrl.substring(0, 100),
         description: metadata.description,
         imageUrl: metadata.imageUrl,
         userId: user.id,
@@ -135,6 +137,7 @@ export const addBookmark = async (c: Context) => {
     });
   }
 };
+
 export const getBookmark = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
