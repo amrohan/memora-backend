@@ -1,6 +1,11 @@
 import { Context } from "hono";
 import db from "../db";
-import { hashPassword, comparePassword, generateToken } from "../lib/authUtils";
+import {
+  hashPassword,
+  comparePassword,
+  generateToken,
+  getAuthUser,
+} from "../lib/authUtils";
 import { JwtPayload } from "../types";
 import { sendApiResponse } from "../lib/responseUtils";
 
@@ -185,6 +190,123 @@ export const loginUser = async (c: Context) => {
           field: "server",
           message:
             error.message || "An unexpected error occurred during login.",
+        },
+      ],
+    });
+  }
+};
+
+export const resetPassword = async (c: Context) => {
+  try {
+    const user = getAuthUser(c);
+
+    if (!user) {
+      return sendApiResponse(c, {
+        status: 401,
+        message: "Unauthorized",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "user",
+            message: "Unauthorized",
+          },
+        ],
+      });
+    }
+
+    const { currentPassword, newPassword } = await c.req.json();
+
+    // Basic Validation
+    if (!currentPassword || !newPassword) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Validation failed",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "currentPassword",
+            message: "Current password and new password are required.",
+          },
+          {
+            field: "newPassword",
+            message: "Current password and new password are required.",
+          },
+        ],
+      });
+    }
+    // Find user by ID
+    const existingUser = await db.user.findUnique({
+      where: { id: user.id },
+    });
+    if (!existingUser) {
+      return sendApiResponse(c, {
+        status: 404,
+        message: "User not found",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "user",
+            message: "User not found.",
+          },
+        ],
+      });
+    }
+
+    // Compare current password
+    const isCurrentPasswordValid = await comparePassword(
+      currentPassword,
+      existingUser.passwordHash
+    );
+    if (!isCurrentPasswordValid) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Current password is incorrect.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "currentPassword",
+            message: "Current password is incorrect.",
+          },
+        ],
+      });
+    }
+    // Hash new password
+    const newPasswordHash = await hashPassword(newPassword);
+    // Update password
+    await db.user.update({
+      where: { id: user.id },
+      data: { passwordHash: newPasswordHash },
+    });
+    // Generate new JWT
+    const payload: JwtPayload = { userId: user.id, email: existingUser.email };
+    const token = generateToken(payload);
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Password reset successful.",
+      data: {
+        token,
+        user: { id: existingUser.id, email: existingUser.email },
+      },
+      metadata: null,
+      errors: null,
+    });
+  } catch (error: any) {
+    console.error("Reset Password Error:", error);
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message:
+            error.message ||
+            "An unexpected error occurred during password reset.",
         },
       ],
     });
