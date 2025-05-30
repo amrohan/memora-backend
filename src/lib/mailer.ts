@@ -16,246 +16,270 @@ export async function sendForgotPasswordEmail(
   const resetUrl = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
   // const resetUrl = `http://localhost:4200/reset-password?token=${resetToken}`;
 
-  const mailOptions = {
-    from: `"Memora Support" <${process.env.GMAIL_USER}>`,
-    to: toEmail,
-    subject: "🔐 Reset Your Memora Password",
-    text: `Hi ${userName || "there"},
+  const userDisplayName = userName || "Memora User";
+  const appName = "Memora";
+  const primaryColor = "#6D28D9";
+  const secondaryColor = "#8B5CF6";
 
-We received a request to reset your Memora account password.
+  const preheaderText = `Reset your ${appName} password and get back to your bookmarks!`;
+
+  const mailOptions = {
+    from: `"${appName} Support" <${process.env.GMAIL_USER}>`,
+    to: toEmail,
+    subject: `🔐 Reset Your ${appName} Password`,
+    text: `Hi ${userDisplayName},
+
+We received a request to reset your ${appName} account password.
 
 To reset your password, please click the link below or copy and paste it into your browser:
 ${resetUrl}
 
 This link will expire in 1 hour.
 
-If you did not request a password reset, please ignore this email and your password will remain unchanged.
+If you did not request a password reset, please ignore this email or contact support if you have concerns. Your password will remain unchanged.
 
-Thanks for using Memora!
+Thanks for using ${appName}!
 
 Best regards,
-The Memora Team`,
+The ${appName} Team`,
 
     html: `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="format-detection" content="telephone=no">
-        <title>Reset Your Memora Password</title>
-        <!--[if mso]>
-        <noscript>
-          <xml>
-            <o:OfficeDocumentSettings>
-              <o:PixelsPerInch>96</o:PixelsPerInch>
-            </o:OfficeDocumentSettings>
-          </xml>
-        </noscript>
-        <![endif]-->
-      </head>
-      <body style="margin: 0; padding: 0; background-color: #f7fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
-        
-        <!-- Preheader text (hidden but shows in email preview) -->
-        <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
-          Reset your Memora password to regain access to all your bookmarks
-        </div>
-        
-        <!-- Main Container -->
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f7fafc;">
-          <tr>
-            <td align="center" valign="top" style="padding: 10px;">
-              
-              <!-- Email Container -->
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
-                
-                <!-- Header -->
-                <tr>
-                  <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px 20px; text-align: center;">
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                      <tr>
-                        <td align="center">
-                          <div style="background-color: rgba(255, 255, 255, 0.15); width: 60px; height: 60px; border-radius: 16px; margin: 0 auto 15px; display: inline-block; line-height: 60px; text-align: center;">
-                            <span style="font-size: 28px; vertical-align: middle; color:white;">M</span>
-                          </div>
-                          <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.5px; line-height: 1.2;">
-                            Reset Your Password
-                          </h1>
-                          <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 15px; line-height: 1.4;">
-                            Secure access to your Memora
-                          </p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                
-                <!-- Main Content -->
-                <tr>
-                  <td style="padding: 30px 20px;">
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                      
-                      <!-- Greeting -->
-                      <tr>
-                        <td style="text-align: center; padding-bottom: 25px;">
-                          <h2 style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0 0 8px 0; line-height: 1.3;">
-                            Hello ${userName || "there"}! 👋
-                          </h2>
-                          <p style="color: #6b7280; font-size: 15px; margin: 0; line-height: 1.5;">
-                            We received a request to reset your Memora password
-                          </p>
-                        </td>
-                      </tr>
-                      
-                      <!-- Main Message -->
-                      <tr>
-                        <td style="padding-bottom: 25px;">
-                          <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; border-left: 4px solid #4f46e5;">
-                            <p style="color: #374151; font-size: 15px; margin: 0 0 12px 0; line-height: 1.6;">
-                              Your bookmarks are important to us, and we want to make sure your account stays secure. 
-                              Tap the button below to create a new password and regain access to all your saved links.
-                            </p>
-                            <p style="color: #6b7280; font-size: 13px; margin: 0; font-style: italic; line-height: 1.4;">
-                              This reset was requested from your account settings.
-                            </p>
-                          </div>
-                        </td>
-                      </tr>
-                      
-                      <!-- CTA Button -->
-                      <tr>
-                        <td style="text-align: center; padding: 25px 0;">
-                          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
-                            <tr>
-                              <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border-radius: 8px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
-                                <a href="${resetUrl}" 
-                                   style="display: block; color: white; text-decoration: none; 
-                                          padding: 16px 28px; font-weight: 600; font-size: 16px; 
-                                          border-radius: 8px; text-align: center; letter-spacing: 0.5px;
-                                          min-width: 200px; box-sizing: border-box;">
-                                  🔑 Reset My Password
-                                </a>
-                              </td>
-                            </tr>
-                          </table>
-                          <p style="color: #9ca3af; font-size: 13px; margin: 12px 0 0 0; line-height: 1.4;">
-                            This button will take you to a secure reset page
-                          </p>
-                        </td>
-                      </tr>
-                      
-                      <!-- Alternative Link Section -->
-                      <tr>
-                        <td style="padding-bottom: 25px;">
-                          <div style="background-color: #f9fafb; border: 2px dashed #d1d5db; border-radius: 8px; padding: 18px; text-align: center;">
-                            <p style="color: #374151; font-size: 14px; margin: 0 0 10px 0; font-weight: 600; line-height: 1.4;">
-                              🔗 Having trouble with the button?
-                            </p>
-                            <p style="color: #6b7280; font-size: 13px; margin: 0 0 12px 0; line-height: 1.4;">
-                              Copy and paste this secure link into your browser:
-                            </p>
-                            <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; font-family: 'Courier New', monospace; margin: 0 auto; max-width: 100%; overflow-wrap: break-word;">
-                              <p style="word-break: break-all; color: #4f46e5; font-size: 12px; margin: 0; line-height: 1.4;">
-                                ${resetUrl}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                      
-                      <!-- Security Features -->
-                      <tr>
-                        <td style="padding-bottom: 25px;">
-                          <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 10px; padding: 18px; border: 1px solid #f59e0b;">
-                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                              <tr>
-                                <td style="width: 30px; vertical-align: top; padding-top: 2px;">
-                                  <span style="font-size: 18px;">🛡️</span>
-                                </td>
-                                <td style="vertical-align: top;">
-                                  <p style="color: #92400e; font-size: 14px; margin: 0 0 8px 0; font-weight: 600; line-height: 1.4;">
-                                    Security & Privacy Protected
-                                  </p>
-                                  <p style="color: #b45309; font-size: 13px; margin: 0; line-height: 1.5;">
-                                    • This reset link expires in <strong>1 hour</strong> for your protection<br/>
-                                    • Your bookmarks and data remain completely secure<br/>
-                                    • If you didn't request this, simply ignore this email
-                                  </p>
-                                </td>
-                              </tr>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
-                      
-                      <!-- App Benefits Reminder -->
-                      <tr>
-                        <td style="text-align: center; padding-bottom: 20px;">
-                          <p style="color: #6b7280; font-size: 15px; margin: 0 0 12px 0; line-height: 1.5;">
-                            Once you're back in, you'll have access to:
-                          </p>
-                          <div style="text-align: left; display: inline-block; max-width: 280px;">
-                            <p style="color: #4b5563; font-size: 13px; margin: 4px 0; line-height: 1.6;">
-                              📌 All your saved bookmarks<br/>
-                              🏷️ Organized collections and tags<br/>
-                              🔍 Powerful search across your links<br/>
-                              📱 Sync across all your devices
-                            </p>
-                          </div>
-                        </td>
-                      </tr>
-                      
-                    </table>
-                  </td>
-                </tr>
-                
-                <!-- Footer -->
-                <tr>
-                  <td style="background-color: #f8fafc; padding: 25px 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                      <tr>
-                        <td style="padding-bottom: 15px;">
-                          <p style="color: #374151; font-size: 15px; margin: 0 0 6px 0; font-weight: 600; line-height: 1.4;">
-                            Happy Bookmarking! 📚
-                          </p>
-                          <p style="color: #6b7280; font-size: 13px; margin: 0; line-height: 1.5;">
-                            Best regards,<br/>
-                            <strong style="color: #4f46e5;">The Memora Team</strong>
-                          </p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="border-top: 1px solid #e5e7eb; padding-top: 15px;">
-                          <p style="color: #9ca3af; font-size: 11px; margin: 0 0 6px 0; line-height: 1.4;">
-                            This is an automated security email. Please do not reply.
-                          </p>
-                          <p style="color: #9ca3af; font-size: 11px; margin: 0; line-height: 1.4;">
-                            Need help? Visit our support center or contact us through the app.
-                          </p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                
-              </table>
-              
-            </td>
-          </tr>
-          
-          <!-- Bottom Spacing & Copyright -->
-          <tr>
-            <td align="center" style="padding: 15px 20px;">
-              <p style="color: #9ca3af; font-size: 11px; margin: 0; line-height: 1.4;">
-                © 2025 Memora. Keeping your bookmarks safe and organized.
-              </p>
-            </td>
-          </tr>
-          
-        </table>
-        
-      </body>
-      </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Reset Your ${appName} Password</title>
+  <style>
+    /* Base Styles */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f8fafc; /* Light gray background for the email client */
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 20px auto;
+      background-color: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 20px 20px -10px rgba(0, 0, 0, 0.04);
+    }
+    .header {
+      background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0 0 10px 0;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+    .header .logo {
+      font-size: 36px; /* Or use an <img> tag for a real logo */
+      margin-bottom: 15px;
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.2);
+      color:white;
+      width: 60px;
+      height: 60px;
+      line-height: 60px; /* Vertically center emoji */
+      border-radius: 12px;
+    }
+    .header p {
+      margin: 0;
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .content {
+      padding: 30px 30px 40px;
+      color: #374151; /* Dark gray for text */
+      line-height: 1.6;
+    }
+    .content h2 {
+      color: #1f2937; /* Near black for headings */
+      font-size: 22px;
+      font-weight: 600;
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+    .content p {
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    .button-cta {
+      display: block; /* Makes the link take full width for easier tapping */
+      width: fit-content; /* Or use max-width if preferred */
+      margin: 30px auto;
+      padding: 15px 30px;
+      background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);
+      color: white !important; /* Important to override email client link styles */
+      text-decoration: none;
+      font-size: 17px;
+      font-weight: 600;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease;
+    }
+    .button-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+    .link-section {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: #f3f4f6; /* Lighter gray for this section */
+      border-radius: 8px;
+      text-align: center;
+    }
+    .link-section p {
+      font-size: 14px;
+      color: #4b5563; /* Medium gray */
+      margin-bottom: 10px;
+    }
+    .reset-url {
+      word-break: break-all;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      color: ${primaryColor};
+      background-color: #e5e7eb;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: inline-block; /* So padding is applied correctly */
+    }
+    .security-info {
+      margin-top: 30px;
+      padding: 15px;
+      background-color: #FEFCE8; /* Light yellow for attention */
+      border-left: 4px solid #FACC15; /* Yellow border */
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+      color: #713F12; /* Dark yellow/brown text */
+    }
+    .security-info strong {
+      color: #713F12;
+    }
+    .footer {
+      padding: 30px;
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280; /* Lighter gray for footer */
+      border-top: 1px solid #e5e7eb; /* Subtle separator */
+    }
+    .footer .app-name {
+      color: ${primaryColor};
+      font-weight: 600;
+    }
+    .footer a {
+      color: ${primaryColor};
+      text-decoration: none;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+    .preheader {
+      display: none !important;
+      visibility: hidden;
+      opacity: 0;
+      color: transparent;
+      height: 0;
+      width: 0;
+      mso-hide:all; /* For Outlook */
+    }
+
+    /* Mobile Specific Tweaks (optional, as base is already quite responsive) */
+    @media screen and (max-width: 600px) {
+      .email-container {
+        width: 100% !important;
+        margin: 0 auto !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+      .header, .content, .footer {
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+      }
+      .header h1 {
+        font-size: 24px !important;
+      }
+      .content h2 {
+        font-size: 20px !important;
+      }
+      .content p {
+        font-size: 15px !important;
+      }
+      .button-cta {
+        padding: 14px 25px !important;
+        font-size: 16px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Preheader Text -->
+  <span class="preheader">${preheaderText}</span>
+
+  <div class="email-container">
+    <div class="header">
+      <div class="logo">M</div>
+      <h1>Reset Your Password</h1>
+      <p>Securely access your ${appName} account</p>
+    </div>
+
+    <div class="content">
+      <h2>Hi ${userDisplayName},</h2>
+      <p>We received a request to reset the password for your ${appName} account. No problem!</p>
+      <p>To create a new password, simply click the button below. This link is valid for <strong>1 hour</strong>.</p>
+
+      <table_removed_for_modern_approach_unless_needed_for_legacy_clients width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center">
+            <a href="${resetUrl}" class="button-cta" target="_blank">
+              🔑 Reset My Password
+            </a>
+          </td>
+        </tr>
+      </table_removed_for_modern_approach_unless_needed_for_legacy_clients>
+      
+      <div class="link-section">
+        <p>If the button above doesn't work, copy and paste this link into your web browser:</p>
+        <p><span class="reset-url">${resetUrl}</span></p>
+      </div>
+
+      <div class="security-info">
+        <p style="margin:0;">
+          🛡️ <strong>Didn't request this change?</strong> If you didn't ask to reset your password, you can safely ignore this email. Your account security is important to us, and your password will remain unchanged.
+        </p>
+      </div>
+      
+      <p style="margin-top: 30px; text-align:center; font-size: 15px;">
+        Get back to organizing your digital world with ${appName}!
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>
+        Happy Bookmarking!<br>
+        <strong>The <span class="app-name">${appName}</span> Team</strong>
+      </p>
+      <p style="margin-top: 15px; font-size: 12px; color: #9ca3af;">
+        This is an automated message. Please do not reply to this email.
+        If you need help, visit our <a href="${process.env.APP_URL}/support">Support Center</a> or contact us through the app.
+      </p>
+      <p style="margin-top: 15px; font-size: 12px; color: #9ca3af;">
+        © ${new Date().getFullYear()} ${appName}. All rights reserved.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
     `,
   };
 
@@ -264,6 +288,11 @@ The Memora Team`,
     console.log(`✅ Forgot password email sent successfully to ${toEmail}`);
   } catch (error) {
     console.error(`❌ Failed to send email to ${toEmail}:`, error);
-    throw error;
+    // Consider how you want to handle this error in your application
+    // For example, you might want to return a specific error message to the user
+    // or log it to a more sophisticated logging service.
+    throw new Error(
+      `Failed to send password reset email. Please try again later.`,
+    );
   }
 }
