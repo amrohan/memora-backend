@@ -5,9 +5,11 @@ import {
   comparePassword,
   generateToken,
   getAuthUser,
+  verifyToken,
 } from "../lib/authUtils";
 import { JwtPayload } from "../types";
 import { sendApiResponse } from "../lib/responseUtils";
+import { sendForgotPasswordEmail } from "../lib/mailer";
 
 // --- Registration Handler ---
 export const registerUser = async (c: Context) => {
@@ -78,12 +80,16 @@ export const registerUser = async (c: Context) => {
       },
     });
 
-    // seed defualt collection and tags
+    // seed default collection and tags
     await seedUserData(newUser.id);
 
-    // Generate JWT
-    const payload: JwtPayload = { userId: newUser.id, email: newUser.email };
-    const token = generateToken(payload);
+    // Generate JWT for immediate login
+    const payload: JwtPayload = {
+      userId: newUser.id,
+      email: newUser.email,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    };
+    const token = generateToken(payload); // Uses default expiry (e.g., 7d)
 
     // Send success response
     return sendApiResponse(c, {
@@ -122,13 +128,16 @@ export const loginUser = async (c: Context) => {
 
     // Basic Validation
     if (!email || !password) {
-      return c.json(
-        {
-          error: "Validation failed",
-          message: "Email and password are required.",
-        },
-        400
-      );
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Validation failed",
+        data: null,
+        metadata: null,
+        errors: [
+          { field: "email", message: "Email is required." },
+          { field: "password", message: "Password is required." },
+        ],
+      });
     }
 
     // Find user by email
@@ -141,11 +150,11 @@ export const loginUser = async (c: Context) => {
         metadata: null,
         errors: [
           {
-            field: "email",
+            field: "credentials", // Generic field for login attempts
             message: "Invalid email or password.",
           },
         ],
-      }); // Generic message for security
+      });
     }
 
     // Compare password
@@ -158,15 +167,19 @@ export const loginUser = async (c: Context) => {
         metadata: null,
         errors: [
           {
-            field: "password",
+            field: "credentials",
             message: "Invalid email or password.",
           },
         ],
       });
     }
 
-    const payload: JwtPayload = { userId: user.id, email: user.email };
-    const token = generateToken(payload);
+    const payload: JwtPayload = {
+      userId: user.id,
+      email: user.email,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    };
+    const token = generateToken(payload); // Uses default expiry (e.g., 7d)
 
     return sendApiResponse(c, {
       status: 200,
@@ -198,9 +211,9 @@ export const loginUser = async (c: Context) => {
 
 export const resetPassword = async (c: Context) => {
   try {
-    const user = getAuthUser(c);
+    const authUser = getAuthUser(c);
 
-    if (!user) {
+    if (!authUser) {
       return sendApiResponse(c, {
         status: 401,
         message: "Unauthorized",
@@ -209,7 +222,7 @@ export const resetPassword = async (c: Context) => {
         errors: [
           {
             field: "user",
-            message: "Unauthorized",
+            message: "User not authenticated.", // More specific message
           },
         ],
       });
@@ -227,20 +240,25 @@ export const resetPassword = async (c: Context) => {
         errors: [
           {
             field: "currentPassword",
-            message: "Current password and new password are required.",
+            message: !currentPassword
+              ? "Current password is required."
+              : "Current password and new password are required.",
           },
           {
             field: "newPassword",
-            message: "Current password and new password are required.",
+            message: !newPassword
+              ? "New password is required."
+              : "Current password and new password are required.",
           },
         ],
       });
     }
     // Find user by ID
     const existingUser = await db.user.findUnique({
-      where: { id: user.id },
+      where: { id: authUser.id },
     });
     if (!existingUser) {
+      // This case should ideally not happen if getAuthUser works based on a valid token
       return sendApiResponse(c, {
         status: 404,
         message: "User not found",
@@ -249,7 +267,7 @@ export const resetPassword = async (c: Context) => {
         errors: [
           {
             field: "user",
-            message: "User not found.",
+            message: "Authenticated user not found in database.",
           },
         ],
       });
@@ -258,11 +276,11 @@ export const resetPassword = async (c: Context) => {
     // Compare current password
     const isCurrentPasswordValid = await comparePassword(
       currentPassword,
-      existingUser.passwordHash
+      existingUser.passwordHash,
     );
     if (!isCurrentPasswordValid) {
       return sendApiResponse(c, {
-        status: 400,
+        status: 400, // Changed from 400 to 401 or 403 could be an option, but 400 for bad input is okay
         message: "Current password is incorrect.",
         data: null,
         metadata: null,
@@ -278,17 +296,23 @@ export const resetPassword = async (c: Context) => {
     const newPasswordHash = await hashPassword(newPassword);
     // Update password
     await db.user.update({
-      where: { id: user.id },
-      data: { passwordHash: newPasswordHash },
+      where: { id: authUser.id },
+      data: { passwordHash: newPasswordHash, updatedAt: new Date() },
     });
-    // Generate new JWT
-    const payload: JwtPayload = { userId: user.id, email: existingUser.email };
-    const token = generateToken(payload);
+
+    // Generate new JWT as a convenience, though frontend might not always need it immediately
+    const payload: JwtPayload = {
+      userId: authUser.id,
+      email: existingUser.email,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    };
+    const token = generateToken(payload); // Uses default expiry
+
     return sendApiResponse(c, {
       status: 200,
       message: "Password reset successful.",
       data: {
-        token,
+        token, // Sending back a new token can be useful
         user: { id: existingUser.id, email: existingUser.email },
       },
       metadata: null,
@@ -317,41 +341,352 @@ const seedUserData = async (userId: string) => {
   const defaultCollections = ["Unsorted"];
   const defaultTags = ["Read Later", "Important", "Favorites"];
 
-  const createCollections = defaultCollections.map((name) =>
-    db.collection.create({
+  try {
+    const createCollectionsPromises = defaultCollections.map((name) =>
+      db.collection.create({
+        data: {
+          name: name,
+          userId: userId,
+          isSystem: true,
+        },
+      }),
+    );
+
+    const createTagsPromises = defaultTags.map((name) =>
+      db.tag.create({
+        data: { name, userId },
+      }),
+    );
+
+    await Promise.all([...createCollectionsPromises, ...createTagsPromises]);
+  } catch (error) {
+    console.error(`Error seeding user data for ${userId}:`, error);
+  }
+};
+
+export const forgotPassword = async (c: Context) => {
+  try {
+    const { email } = (await c.req.json()) as { email?: string };
+
+    if (!email) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Email is required.",
+        data: null,
+        metadata: null,
+        errors: [{ field: "email", message: "Email is required." }],
+      });
+    }
+
+    const user = await db.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return sendApiResponse(c, {
+        status: 200,
+        message:
+          "If an account with that email exists, a password reset link has been sent.",
+        data: null,
+        metadata: null,
+        errors: null,
+      });
+    }
+
+    const expiryInSeconds = Math.floor(Date.now() / 1000) + 3600;
+
+    const payload: JwtPayload = {
+      userId: user.id,
+      email: user.email,
+      exp: expiryInSeconds,
+    };
+
+    const resetToken = generateToken(payload, expiryInSeconds);
+
+    await db.user.update({
+      where: { id: user.id },
       data: {
-        name: name,
-        userId: userId,
-        isSystem: true,
-      },
-    })
-  );
-
-  // Run this once, before the schema change
-  const tags = await db.tag.findMany({
-    include: { user: true },
-  });
-
-  for (const tag of tags) {
-    const userId = tag.userId;
-    const name = tag.name;
-
-    const existing = await db.tag.findFirst({ where: { userId, name } });
-    if (existing) continue;
-
-    // If not exists, clone it for the user
-    await db.tag.create({
-      data: {
-        name,
-        userId,
+        resetToken,
+        resetTokenExpiry: new Date(expiryInSeconds * 1000),
+        updatedAt: new Date(),
       },
     });
-  }
-  const createTags = defaultTags.map((name) =>
-    db.tag.create({
-      data: { name, userId },
-    })
-  );
 
-  await Promise.all([...createCollections, ...createTags]);
+    await sendForgotPasswordEmail(
+      user.email,
+      user.name ?? user.email,
+      resetToken,
+    );
+
+    return sendApiResponse(c, {
+      status: 200,
+      message:
+        "If an account with that email exists, a password reset link has been sent.",
+      data: null,
+      metadata: null,
+      errors: null,
+    });
+  } catch (error: any) {
+    console.error("Forgot Password Error:", error);
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "An unexpected error occurred.",
+        },
+      ],
+    });
+  }
+};
+
+// Validate Reset Token Endpoint
+export const validateResetToken = async (c: Context) => {
+  try {
+    const body = await c.req.json();
+    const { token } = body;
+
+    if (!token) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Reset token is required.",
+        data: { valid: false },
+        metadata: null,
+        errors: [{ field: "token", message: "Reset token is required." }],
+      });
+    }
+
+    const decodedToken = verifyToken(token);
+
+    if (!decodedToken) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Invalid or expired reset token.",
+        data: { valid: false },
+        metadata: null,
+        errors: [
+          {
+            field: "token",
+            message: "The provided reset token is invalid or has expired.",
+          },
+        ],
+      });
+    }
+
+    // Check if user exists, token matches, and DB expiry is valid
+    const user = await db.user.findFirst({
+      where: {
+        email: decodedToken.email,
+        resetToken: token,
+      },
+    });
+
+    if (!user) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Invalid reset token.",
+        data: { valid: false },
+        metadata: null,
+        errors: [
+          {
+            field: "token",
+            message: "The provided reset token is invalid.",
+          },
+        ],
+      });
+    }
+
+    if (
+      !user.resetTokenExpiry ||
+      user.resetTokenExpiry.getTime() < new Date().getTime()
+    ) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Reset token has expired.",
+        data: { valid: false },
+        metadata: null,
+        errors: [
+          {
+            field: "token",
+            message: "The reset token is no longer valid or has expired.",
+          },
+        ],
+      });
+    }
+
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Reset token is valid.",
+      data: {
+        valid: true,
+        email: user.email,
+      },
+      metadata: null,
+      errors: null,
+    });
+  } catch (error: any) {
+    console.error("Validate Reset Token Error:", error);
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: { valid: false },
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "An unexpected error occurred.",
+        },
+      ],
+    });
+  }
+};
+
+// Reset Password with Token Endpoint
+export const resetPasswordWithToken = async (c: Context) => {
+  try {
+    const body = await c.req.json();
+    const { token, newPassword, confirmPassword } = body as {
+      token?: string;
+      newPassword?: string;
+      confirmPassword?: string;
+    };
+
+    if (!token) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Reset token is required.",
+        data: null,
+        metadata: null,
+        errors: [{ field: "token", message: "Reset token is required." }],
+      });
+    }
+
+    if (!newPassword || !confirmPassword) {
+      const errors = [];
+      if (!newPassword)
+        errors.push({
+          field: "newPassword",
+          message: "New password is required.",
+        });
+      if (!confirmPassword)
+        errors.push({
+          field: "confirmPassword",
+          message: "Confirm password is required.",
+        });
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Password fields are required.",
+        data: null,
+        metadata: null,
+        errors,
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Passwords do not match.",
+        data: null,
+        metadata: null,
+        errors: [
+          { field: "confirmPassword", message: "Passwords do not match." },
+        ],
+      });
+    }
+
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Password does not meet security requirements.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "newPassword",
+            message:
+              "Password must be at least 8 characters and include uppercase, lowercase, number, and a special character.",
+          },
+        ],
+      });
+    }
+
+    const decodedToken = verifyToken(token);
+
+    if (!decodedToken) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Invalid or expired reset token.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "token",
+            message: "The provided reset token is invalid or has expired.",
+          },
+        ],
+      });
+    }
+
+    const user = await db.user.findUnique({
+      where: {
+        id: decodedToken.userId,
+        resetToken: token,
+      },
+    });
+
+    if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Invalid or expired reset token.",
+        data: null,
+        metadata: null,
+        errors: [
+          {
+            field: "token",
+            message: "The reset token is no longer valid or has expired.",
+          },
+        ],
+      });
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    await db.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null,
+        updatedAt: new Date(),
+      },
+    });
+
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Password has been reset successfully.",
+      data: {
+        message:
+          "Your password has been updated. You can now log in with your new password.",
+      },
+      metadata: null,
+      errors: null,
+    });
+  } catch (error: any) {
+    console.error("Reset Password with Token Error:", error);
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "An unexpected error occurred.",
+        },
+      ],
+    });
+  }
 };

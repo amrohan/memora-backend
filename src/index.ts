@@ -45,7 +45,6 @@ app.notFound((c) => {
 // --- Global Error Handler ---
 app.onError((err, c) => {
   console.error("Unhandled Application Error:", err);
-  // Avoid leaking detailed errors in production
   const errorMessage =
     process.env.NODE_ENV === "production"
       ? "Internal Server Error"
@@ -54,7 +53,7 @@ app.onError((err, c) => {
 });
 
 // --- Server ---
-const port = parseInt(process.env.PORT || "3000"); // Use PORT from env (like Replit) or default to 3000
+const port = parseInt(process.env.PORT || "3000");
 
 // Function to get current Indian time
 const getCurrentIndianTime = () => {
@@ -70,7 +69,6 @@ const getCurrentIndianTime = () => {
 };
 
 console.log(`🚀 Server running on http://localhost:${port}`);
-// Display current time for the requested location (Mumbai/India)
 console.log(`🕰️  Current time in India: ${getCurrentIndianTime()} (IST)`);
 
 serve({

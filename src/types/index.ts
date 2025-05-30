@@ -1,9 +1,8 @@
-// Define types used across the application, especially for context/payloads
-
 // Payload structure for JWT
 export interface JwtPayload {
   userId: string;
   email: string;
+  exp: number;
 }
 
 // Structure to attach to Hono context after authentication

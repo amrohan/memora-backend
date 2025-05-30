@@ -12,15 +12,17 @@ datasource db {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  name         String?
-  passwordHash String
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  bookmarks    Bookmark[]
-  collections  Collection[]
-  Tag          Tag[]
+  id               String       @id @default(cuid())
+  email            String       @unique
+  name             String?
+  passwordHash     String
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  bookmarks        Bookmark[]
+  collections      Collection[]
+  Tag              Tag[]
 }
 
 model Bookmark {
