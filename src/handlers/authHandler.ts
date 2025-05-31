@@ -177,9 +177,9 @@ export const loginUser = async (c: Context) => {
     const payload: JwtPayload = {
       userId: user.id,
       email: user.email,
-      exp: Math.floor(Date.now() / 1000) + 3600,
+      exp: Math.floor(Date.now() / 1000) + 604800,
     };
-    const token = generateToken(payload); // Uses default expiry (e.g., 7d)
+    const token = generateToken(payload);
 
     return sendApiResponse(c, {
       status: 200,
