@@ -6,12 +6,17 @@ import {
   forgotPassword,
   validateResetToken,
   resetPasswordWithToken,
+  authincateByAccessCode,
+  verifyAccessCode,
 } from "../handlers/authHandler";
 import { authMiddleware } from "../middleware/authMiddleware";
 
 const authRoutes = new Hono();
 
 authRoutes.post("/forgot-password", forgotPassword);
+authRoutes.post("/generate-access-code", authincateByAccessCode)
+authRoutes.post("/verify-access-code", verifyAccessCode)
+
 authRoutes.post("/register", registerUser);
 
 authRoutes.post("/validate-reset-token", validateResetToken);

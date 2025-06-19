@@ -17,6 +17,7 @@ model User {
   name             String?
   passwordHash     String
   resetToken       String?
+  accessToken      String?
   resetTokenExpiry DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
@@ -40,7 +41,7 @@ model Bookmark {
   tags        Tag[]        @relation("BookmarkTags")
   collections Collection[] @relation("BookmarkCollections")
 
-  @@unique([userId, url]) // Prevent user from adding the same URL twice
+  @@unique([userId, url])
   @@index([userId])
 }
 
@@ -63,10 +64,10 @@ model Collection {
   updatedAt DateTime @updatedAt
 
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade) // Collections belong to a user
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   bookmarks Bookmark[] @relation("BookmarkCollections")
 
-  @@unique([userId, name]) // Prevent user from having duplicate collection names
+  @@unique([userId, name])
   @@index([userId])
 }

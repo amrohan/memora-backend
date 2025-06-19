@@ -9,7 +9,8 @@ import {
 } from "../lib/authUtils";
 import { JwtPayload } from "../types";
 import { sendApiResponse } from "../lib/responseUtils";
-import { sendForgotPasswordEmail } from "../lib/mailer";
+import { sendAccessCode, sendForgotPasswordEmail } from "../lib/mailer";
+import { generateAccessCode } from "../lib/helpers";
 
 // --- Registration Handler ---
 export const registerUser = async (c: Context) => {
@@ -542,7 +543,6 @@ export const validateResetToken = async (c: Context) => {
   }
 };
 
-// Reset Password with Token Endpoint
 export const resetPasswordWithToken = async (c: Context) => {
   try {
     const body = await c.req.json();
@@ -676,6 +676,152 @@ export const resetPasswordWithToken = async (c: Context) => {
     });
   } catch (error: any) {
     console.error("Reset Password with Token Error:", error);
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "An unexpected error occurred.",
+        },
+      ],
+    });
+  }
+};
+
+export const authincateByAccessCode = async (c: Context) => {
+  try {
+    const { email } = (await c.req.json()) as { email?: string };
+
+    if (!email) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Email is required.",
+        data: null,
+        metadata: null,
+        errors: [{ field: "email", message: "Email is required." }],
+      });
+    }
+
+    const user = await db.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return sendApiResponse(c, {
+        status: 200,
+        message: "If an account with that email exists, an access code has been sent.",
+        data: null,
+        metadata: null,
+        errors: null,
+      });
+    }
+
+    const accessCode = generateAccessCode(6);
+
+    const expiryTime = new Date(Date.now() + 10 * 60 * 1000);
+
+    await db.user.update({
+      where: { id: user.id },
+      data: {
+        accessToken: accessCode,
+        resetTokenExpiry: expiryTime,
+        updatedAt: new Date(),
+      },
+    });
+
+    await sendAccessCode(
+      user.email,
+      user.name ?? user.email,
+      accessCode
+    );
+
+    return sendApiResponse(c, {
+      status: 200,
+      message: "If an account with that email exists, an access code has been sent.",
+      data: null,
+      metadata: null,
+      errors: null,
+    });
+
+  } catch (error: any) {
+    console.error("Forgot Password Error:", error);
+    return sendApiResponse(c, {
+      status: 500,
+      message: "Internal Server Error",
+      data: null,
+      metadata: null,
+      errors: [
+        {
+          field: "server",
+          message: error.message || "An unexpected error occurred.",
+        },
+      ],
+    });
+  }
+};
+
+export const verifyAccessCode = async (c: Context) => {
+  try {
+    const { email, accessCode } = (await c.req.json()) as {
+      email?: string;
+      accessCode?: string;
+    };
+    if (!email || !accessCode) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Email and access code are required.",
+        data: null,
+        metadata: null,
+        errors: [
+          ...((!email) ? [{ field: "email", message: "Email is required." }] : []),
+          ...((!accessCode) ? [{ field: "accessCode", message: "Access code is required." }] : [])
+        ],
+      });
+    }
+    const user = await db.user.findUnique({ where: { email } });
+    if (!user ||
+      !user.accessToken ||
+      user.accessToken.toUpperCase() !== accessCode.toUpperCase() ||
+      !user.resetTokenExpiry ||
+      user.resetTokenExpiry < new Date()) {
+      return sendApiResponse(c, {
+        status: 400,
+        message: "Invalid or expired access code.",
+        data: null,
+        metadata: null,
+        errors: [{ field: "accessCode", message: "Invalid or expired access code." }],
+      });
+    }
+
+    const payload: JwtPayload = {
+      userId: user.id,
+      email: user.email,
+      exp: Math.floor(Date.now() / 1000) + 604800,
+    };
+    const token = generateToken(payload);
+
+    await db.user.update({
+      where: { id: user.id },
+      data: {
+        accessToken: null,
+        resetTokenExpiry: null,
+      },
+    });
+
+    return sendApiResponse(c, {
+      status: 200,
+      message: "Access code verified successfully.",
+      data: {
+        token,
+        user: { id: user.id, email: user.email },
+        verified: true,
+      },
+      metadata: null,
+      errors: null,
+    });
+  } catch (error: any) {
+    console.error("Verify Access Code Error:", error);
     return sendApiResponse(c, {
       status: 500,
       message: "Internal Server Error",

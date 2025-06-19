@@ -288,11 +288,103 @@ The ${appName} Team`,
     console.log(`✅ Forgot password email sent successfully to ${toEmail}`);
   } catch (error) {
     console.error(`❌ Failed to send email to ${toEmail}:`, error);
-    // Consider how you want to handle this error in your application
-    // For example, you might want to return a specific error message to the user
-    // or log it to a more sophisticated logging service.
     throw new Error(
       `Failed to send password reset email. Please try again later.`,
     );
+  }
+}
+
+export async function sendAccessCode(
+  toEmail: string,
+  userName: string,
+  accessCode: string,
+) {
+  const userDisplayName = userName || "Memora User";
+  const appName = "Memora";
+  const appUrl = process.env.APP_URL;
+
+  const mailOptions = {
+    from: `"${appName} Support" <${process.env.GMAIL_USER}>`,
+    to: toEmail,
+    subject: `🔐 Your ${appName} Access Code`,
+    text: `Hi ${userDisplayName},
+
+Your ${appName} access code: ${accessCode}
+
+It will expire in 10 minutes.
+
+If you did not request this, please ignore the email.
+
+– The ${appName} Team`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9fafb;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 480px;
+      margin: auto;
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      color: #111827;
+      line-height: 1.5;
+    }
+    .access-code {
+      font-family: monospace;
+      font-size: 24px;
+      background: #f3f4f6;
+      padding: 12px 16px;
+      text-align: center;
+      border-radius: 6px;
+      margin: 20px 0;
+      color: #4f46e5;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #6b7280;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <p>Hi ${userDisplayName},</p>
+    <p>Here is your access code for logging into <strong>${appName}</strong>:</p>
+
+    <div class="access-code">${accessCode}</div>
+
+    <p>This code will expire in <strong>10 minutes</strong>.</p>
+
+    <p>If you didn’t request this code, you can ignore this email.</p>
+
+    <p>– The ${appName} Team</p>
+
+    <div class="footer">
+      <p>Need help? Visit <a href="${appUrl}/support">${appUrl}/support</a></p>
+      <p>&copy; ${new Date().getFullYear()} ${appName}. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Access code email sent to ${toEmail}`);
+  } catch (error) {
+    console.error(`❌ Failed to send email to ${toEmail}:`, error);
+    throw new Error("Failed to send access code email. Please try again later.");
   }
 }
