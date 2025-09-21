@@ -12,12 +12,10 @@ import { sendApiResponse } from "../lib/responseUtils";
 import { sendAccessCode, sendForgotPasswordEmail } from "../lib/mailer";
 import { generateAccessCode } from "../lib/helpers";
 
-// --- Registration Handler ---
 export const registerUser = async (c: Context) => {
   try {
     const { email, password } = await c.req.json();
 
-    // Basic Validation
     if (!email || !password) {
       return sendApiResponse(c, {
         status: 400,
@@ -36,7 +34,7 @@ export const registerUser = async (c: Context) => {
         ],
       });
     }
-    // Add more validation (e.g., email format, password complexity) here
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return sendApiResponse(c, {
@@ -53,7 +51,6 @@ export const registerUser = async (c: Context) => {
       });
     }
 
-    // Check if user already exists
     const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
       return sendApiResponse(c, {
@@ -70,10 +67,8 @@ export const registerUser = async (c: Context) => {
       });
     }
 
-    // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Create user
     const newUser = await db.user.create({
       data: {
         email,
@@ -81,18 +76,15 @@ export const registerUser = async (c: Context) => {
       },
     });
 
-    // seed default collection and tags
     await seedUserData(newUser.id);
 
-    // Generate JWT for immediate login
     const payload: JwtPayload = {
       userId: newUser.id,
       email: newUser.email,
       exp: Math.floor(Date.now() / 1000) + 3600,
     };
-    const token = generateToken(payload); // Uses default expiry (e.g., 7d)
+    const token = generateToken(payload);
 
-    // Send success response
     return sendApiResponse(c, {
       status: 201,
       message: "User registered successfully.",
@@ -122,12 +114,10 @@ export const registerUser = async (c: Context) => {
   }
 };
 
-// --- Login Handler ---
 export const loginUser = async (c: Context) => {
   try {
     const { email, password } = await c.req.json();
 
-    // Basic Validation
     if (!email || !password) {
       return sendApiResponse(c, {
         status: 400,
@@ -141,7 +131,6 @@ export const loginUser = async (c: Context) => {
       });
     }
 
-    // Find user by email
     const user = await db.user.findUnique({ where: { email } });
     if (!user) {
       return sendApiResponse(c, {
@@ -151,14 +140,13 @@ export const loginUser = async (c: Context) => {
         metadata: null,
         errors: [
           {
-            field: "credentials", // Generic field for login attempts
+            field: "credentials",
             message: "Invalid email or password.",
           },
         ],
       });
     }
 
-    // Compare password
     const isPasswordValid = await comparePassword(password, user.passwordHash);
     if (!isPasswordValid) {
       return sendApiResponse(c, {
@@ -223,7 +211,7 @@ export const resetPassword = async (c: Context) => {
         errors: [
           {
             field: "user",
-            message: "User not authenticated.", // More specific message
+            message: "User not authenticated.",
           },
         ],
       });
@@ -231,7 +219,6 @@ export const resetPassword = async (c: Context) => {
 
     const { currentPassword, newPassword } = await c.req.json();
 
-    // Basic Validation
     if (!currentPassword || !newPassword) {
       return sendApiResponse(c, {
         status: 400,
@@ -254,12 +241,11 @@ export const resetPassword = async (c: Context) => {
         ],
       });
     }
-    // Find user by ID
+
     const existingUser = await db.user.findUnique({
       where: { id: authUser.id },
     });
     if (!existingUser) {
-      // This case should ideally not happen if getAuthUser works based on a valid token
       return sendApiResponse(c, {
         status: 404,
         message: "User not found",
@@ -274,14 +260,13 @@ export const resetPassword = async (c: Context) => {
       });
     }
 
-    // Compare current password
     const isCurrentPasswordValid = await comparePassword(
       currentPassword,
-      existingUser.passwordHash,
+      existingUser.passwordHash
     );
     if (!isCurrentPasswordValid) {
       return sendApiResponse(c, {
-        status: 400, // Changed from 400 to 401 or 403 could be an option, but 400 for bad input is okay
+        status: 400,
         message: "Current password is incorrect.",
         data: null,
         metadata: null,
@@ -293,27 +278,26 @@ export const resetPassword = async (c: Context) => {
         ],
       });
     }
-    // Hash new password
+
     const newPasswordHash = await hashPassword(newPassword);
-    // Update password
+
     await db.user.update({
       where: { id: authUser.id },
       data: { passwordHash: newPasswordHash, updatedAt: new Date() },
     });
 
-    // Generate new JWT as a convenience, though frontend might not always need it immediately
     const payload: JwtPayload = {
       userId: authUser.id,
       email: existingUser.email,
       exp: Math.floor(Date.now() / 1000) + 3600,
     };
-    const token = generateToken(payload); // Uses default expiry
+    const token = generateToken(payload);
 
     return sendApiResponse(c, {
       status: 200,
       message: "Password reset successful.",
       data: {
-        token, // Sending back a new token can be useful
+        token,
         user: { id: existingUser.id, email: existingUser.email },
       },
       metadata: null,
@@ -350,13 +334,13 @@ const seedUserData = async (userId: string) => {
           userId: userId,
           isSystem: true,
         },
-      }),
+      })
     );
 
     const createTagsPromises = defaultTags.map((name) =>
       db.tag.create({
         data: { name, userId },
-      }),
+      })
     );
 
     await Promise.all([...createCollectionsPromises, ...createTagsPromises]);
@@ -414,7 +398,7 @@ export const forgotPassword = async (c: Context) => {
     await sendForgotPasswordEmail(
       user.email,
       user.name ?? user.email,
-      resetToken,
+      resetToken
     );
 
     return sendApiResponse(c, {
@@ -442,7 +426,6 @@ export const forgotPassword = async (c: Context) => {
   }
 };
 
-// Validate Reset Token Endpoint
 export const validateResetToken = async (c: Context) => {
   try {
     const body = await c.req.json();
@@ -475,7 +458,6 @@ export const validateResetToken = async (c: Context) => {
       });
     }
 
-    // Check if user exists, token matches, and DB expiry is valid
     const user = await db.user.findFirst({
       where: {
         email: decodedToken.email,
@@ -710,7 +692,8 @@ export const authincateByAccessCode = async (c: Context) => {
     if (!user) {
       return sendApiResponse(c, {
         status: 200,
-        message: "If an account with that email exists, an access code has been sent.",
+        message:
+          "If an account with that email exists, an access code has been sent.",
         data: null,
         metadata: null,
         errors: null,
@@ -730,20 +713,16 @@ export const authincateByAccessCode = async (c: Context) => {
       },
     });
 
-    await sendAccessCode(
-      user.email,
-      user.name ?? user.email,
-      accessCode
-    );
+    await sendAccessCode(user.email, user.name ?? user.email, accessCode);
 
     return sendApiResponse(c, {
       status: 200,
-      message: "If an account with that email exists, an access code has been sent.",
+      message:
+        "If an account with that email exists, an access code has been sent.",
       data: null,
       metadata: null,
       errors: null,
     });
-
   } catch (error: any) {
     console.error("Forgot Password Error:", error);
     return sendApiResponse(c, {
@@ -774,23 +753,31 @@ export const verifyAccessCode = async (c: Context) => {
         data: null,
         metadata: null,
         errors: [
-          ...((!email) ? [{ field: "email", message: "Email is required." }] : []),
-          ...((!accessCode) ? [{ field: "accessCode", message: "Access code is required." }] : [])
+          ...(!email
+            ? [{ field: "email", message: "Email is required." }]
+            : []),
+          ...(!accessCode
+            ? [{ field: "accessCode", message: "Access code is required." }]
+            : []),
         ],
       });
     }
     const user = await db.user.findUnique({ where: { email } });
-    if (!user ||
+    if (
+      !user ||
       !user.accessToken ||
       user.accessToken.toUpperCase() !== accessCode.toUpperCase() ||
       !user.resetTokenExpiry ||
-      user.resetTokenExpiry < new Date()) {
+      user.resetTokenExpiry < new Date()
+    ) {
       return sendApiResponse(c, {
         status: 400,
         message: "Invalid or expired access code.",
         data: null,
         metadata: null,
-        errors: [{ field: "accessCode", message: "Invalid or expired access code." }],
+        errors: [
+          { field: "accessCode", message: "Invalid or expired access code." },
+        ],
       });
     }
 

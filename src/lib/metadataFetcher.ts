@@ -72,7 +72,6 @@ export async function fetchMetadata(url: string): Promise<Metadata> {
     const html = await res.text();
     const $ = cheerio.load(html);
 
-    // helper to extract text/attr
     const extract = (selectors: string[], attr?: string) => {
       for (const sel of selectors) {
         const el = $(sel).first();
@@ -93,7 +92,6 @@ export async function fetchMetadata(url: string): Promise<Metadata> {
     const rawImage =
       extract(IMAGE_SELECTORS, "content") || extract(IMAGE_SELECTORS, "href");
 
-    // normalize URLs
     let imageUrl: string | undefined;
     if (rawImage) {
       try {

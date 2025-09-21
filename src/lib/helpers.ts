@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from "crypto";
 
 /**
  * Generates a random alphanumeric access code
@@ -6,8 +6,8 @@ import crypto from 'crypto';
  * @returns {string} - Uppercase alphanumeric access code
  */
 export function generateAccessCode(length: number = 6): string {
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let result = '';
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let result = "";
 
   for (let i = 0; i < length; i++) {
     const randomIndex = crypto.randomInt(0, chars.length);

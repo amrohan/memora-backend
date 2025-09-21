@@ -27,12 +27,10 @@ export const addBookmark = async (c: Context) => {
       });
     }
 
-    // Clean the URL
     const cleanUrl = new URL(url);
     cleanUrl.searchParams.delete("ref");
     const finalUrl = cleanUrl.toString();
 
-    // Check for existing bookmark using cleaned URL
     const existingBookmark = await db.bookmark.findUnique({
       where: { userId_url: { userId: user.id, url: finalUrl } },
     });
@@ -54,7 +52,6 @@ export const addBookmark = async (c: Context) => {
 
     const metadata = await fetchMetadata(finalUrl);
 
-    // Get most recent bookmark for default collection/tag
     const recentBookmark = await db.bookmark.findFirst({
       where: {
         userId: user.id,
@@ -80,17 +77,17 @@ export const addBookmark = async (c: Context) => {
         userId: user.id,
         collections: defaultCollection
           ? {
-            connect: {
-              id: defaultCollection.id,
-            },
-          }
+              connect: {
+                id: defaultCollection.id,
+              },
+            }
           : undefined,
         tags: defaultTag
           ? {
-            connect: {
-              id: defaultTag.id,
-            },
-          }
+              connect: {
+                id: defaultTag.id,
+              },
+            }
           : undefined,
       },
       include: { tags: true, collections: true },
@@ -222,7 +219,6 @@ export const updateBookmark = async (c: Context) => {
     const { title, description, imageUrl, tags, collections } =
       await c.req.json();
 
-    // Validate tags format
     if (tags && !Array.isArray(tags)) {
       return sendApiResponse(c, {
         status: 400,
@@ -238,7 +234,6 @@ export const updateBookmark = async (c: Context) => {
       });
     }
 
-    // Validate collections format
     if (collections && !Array.isArray(collections)) {
       return sendApiResponse(c, {
         status: 400,
@@ -254,7 +249,6 @@ export const updateBookmark = async (c: Context) => {
       });
     }
 
-    // Check if bookmark exists and belongs to the user
     const existingBookmark = await db.bookmark.findUnique({
       where: { id: id, userId: user.id },
       include: {
@@ -278,7 +272,6 @@ export const updateBookmark = async (c: Context) => {
       });
     }
 
-    // Process collections - validate they belong to the user
     let validCollectionIds: string[] = [];
     if (collections && collections.length > 0) {
       const userCollections = await db.collection.findMany({
@@ -291,33 +284,27 @@ export const updateBookmark = async (c: Context) => {
       validCollectionIds = userCollections.map((col) => col.id);
     }
 
-    // Prepare update data
     const updateData: any = {
       title: title ?? existingBookmark.title,
       description: description ?? existingBookmark.description,
       imageUrl: imageUrl ?? existingBookmark.imageUrl,
     };
 
-    // Handle collections update
     if (collections !== undefined) {
       updateData.collections = {
         set: validCollectionIds.map((id) => ({ id })),
       };
     }
 
-    // Handle tags update - Fixed approach
     if (tags !== undefined) {
-      // First disconnect all existing tags
       updateData.tags = {
         disconnect: existingBookmark.tags.map((tag) => ({ id: tag.id })),
       };
 
-      // Process and connect new tags
       const tagPromises = tags.map(
         async (tag: { id?: string; name: string }) => {
           const tagName = tag.name.trim().toLowerCase();
 
-          // If tag has an ID, try to connect to it first
           if (tag.id) {
             const existingTag = await db.tag.findUnique({
               where: { id: tag.id },
@@ -328,7 +315,6 @@ export const updateBookmark = async (c: Context) => {
             }
           }
 
-          // Otherwise look up by name or create new
           const existingTag = await db.tag.findFirst({
             where: { name: tagName, userId: user.id },
           });
@@ -344,19 +330,17 @@ export const updateBookmark = async (c: Context) => {
             });
             return { id: newTag.id };
           }
-        },
+        }
       );
 
       const tagConnections = await Promise.all(tagPromises);
 
-      // Update the tags connect operation
       updateData.tags = {
         ...updateData.tags,
         connect: tagConnections,
       };
     }
 
-    // Update the bookmark
     const updatedBookmark = await db.bookmark.update({
       where: {
         id: id,
@@ -476,12 +460,10 @@ export const listBookmarks = async (c: Context) => {
   }
 
   try {
-    // 1. Get query parameters
     const { page, pageSize, search, collectionId, tagId } = c.req.query();
     const pageNumber = parseInt(page as string) || 1;
     const pageSizeNumber = parseInt(pageSize as string) || 10;
 
-    // 2. Process parameters, explicitly handling "undefined" strings and empty strings
     const searchQuery =
       search && typeof search === "string" && search.trim() !== ""
         ? search.trim()
@@ -490,36 +472,31 @@ export const listBookmarks = async (c: Context) => {
     const rawCollectionId = collectionId as string | undefined;
     const filterCollectionId =
       rawCollectionId &&
-        rawCollectionId.trim() !== "" &&
-        rawCollectionId.toLowerCase() !== "undefined"
+      rawCollectionId.trim() !== "" &&
+      rawCollectionId.toLowerCase() !== "undefined"
         ? rawCollectionId.trim()
         : null;
 
     const rawTagId = tagId as string | undefined;
     const filterTagId =
       rawTagId &&
-        rawTagId.trim() !== "" &&
-        rawTagId.toLowerCase() !== "undefined"
+      rawTagId.trim() !== "" &&
+      rawTagId.toLowerCase() !== "undefined"
         ? rawTagId.trim()
         : null;
 
-    // 3. Define the base WHERE clause filtering by user
     let finalWhereClause: Prisma.BookmarkWhereInput = {
       userId: user.id,
     };
 
-    // 4. Apply search filter (if provided and valid)
     if (searchQuery) {
-      // NOTE: Using case-sensitive search. Update Prisma and uncomment 'mode'
-      // for case-insensitive search.
       finalWhereClause.OR = [
-        { title: { contains: searchQuery /*, mode: "insensitive" */ } },
-        { url: { contains: searchQuery /*, mode: "insensitive" */ } },
-        { description: { contains: searchQuery /*, mode: "insensitive" */ } },
+        { title: { contains: searchQuery } },
+        { url: { contains: searchQuery } },
+        { description: { contains: searchQuery } },
       ];
     }
 
-    // 5. Apply collection filter (if provided and valid)
     if (filterCollectionId) {
       finalWhereClause.collections = {
         some: {
@@ -528,7 +505,6 @@ export const listBookmarks = async (c: Context) => {
       };
     }
 
-    // 6. Apply tag filter (if provided and valid)
     if (filterTagId) {
       finalWhereClause.tags = {
         some: {
@@ -537,31 +513,28 @@ export const listBookmarks = async (c: Context) => {
       };
     }
 
-    // 7. Get the TOTAL count of matching bookmarks
     const totalCount = await db.bookmark.count({
       where: finalWhereClause,
     });
 
-    // 8. Prepare metadata
     const totalPages = Math.ceil(totalCount / pageSizeNumber);
     const hasNextPage = pageNumber < totalPages;
     const hasPreviousPage = pageNumber > 1;
     const nextPage = hasNextPage ? pageNumber + 1 : null;
     const previousPage = hasPreviousPage ? pageNumber - 1 : null;
 
-    // 9. Handle case where no bookmarks match the filters
     if (totalCount === 0) {
       let message = "No bookmarks found for this user.";
-      // Check if any *valid* filters were actually applied
+
       if (searchQuery || filterCollectionId || filterTagId) {
         message = "No bookmarks found matching your filter criteria.";
-        // More specific messages based on *valid* filters applied
+
         if (searchQuery && !filterCollectionId && !filterTagId) {
           message = "No bookmarks found matching your search (case-sensitive).";
         } else if (filterCollectionId && !searchQuery && !filterTagId) {
-          message = `No bookmarks found in the specified collection.`; // Avoid showing the ID unless necessary
+          message = `No bookmarks found in the specified collection.`;
         } else if (filterTagId && !searchQuery && !filterCollectionId) {
-          message = `No bookmarks found with the specified tag.`; // Avoid showing the ID unless necessary
+          message = `No bookmarks found with the specified tag.`;
         }
       }
 
@@ -583,7 +556,6 @@ export const listBookmarks = async (c: Context) => {
       });
     }
 
-    // 10. Fetch the bookmarks for the CURRENT page
     const bookmarks = await db.bookmark.findMany({
       where: finalWhereClause,
       include: {
@@ -597,7 +569,6 @@ export const listBookmarks = async (c: Context) => {
       take: pageSizeNumber,
     });
 
-    // 11. Return the successful response
     return sendApiResponse(c, {
       status: 200,
       message: "Bookmarks retrieved successfully.",
@@ -617,7 +588,7 @@ export const listBookmarks = async (c: Context) => {
   } catch (error: any) {
     console.error(
       `List Bookmarks Error for user ${user?.id || "unauthenticated"}:`,
-      error,
+      error
     );
     if (error instanceof Prisma.PrismaClientValidationError) {
       console.error("Prisma Validation Error:", error.message);

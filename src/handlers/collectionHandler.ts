@@ -4,7 +4,6 @@ import { getAuthUser } from "../lib/authUtils";
 import { sendApiResponse } from "../lib/responseUtils";
 import { Prisma } from "../../generated/prisma";
 
-// --- Create Collection Handler ---
 export const createCollection = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
@@ -20,7 +19,6 @@ export const createCollection = async (c: Context) => {
   try {
     const { name } = await c.req.json();
 
-    // Basic Validation
     if (!name || typeof name !== "string" || name.trim() === "") {
       return sendApiResponse(c, {
         status: 400,
@@ -36,7 +34,6 @@ export const createCollection = async (c: Context) => {
       });
     }
 
-    // Check for duplicate collection name for this user
     const existingCollection = await db.collection.findUnique({
       where: { userId_name: { userId: user.id, name: name.trim() } },
     });
@@ -55,7 +52,6 @@ export const createCollection = async (c: Context) => {
       });
     }
 
-    // Create collection
     const newCollection = await db.collection.create({
       data: {
         name: name.trim(),
@@ -73,7 +69,6 @@ export const createCollection = async (c: Context) => {
   } catch (error: any) {
     console.error("Create Collection Error:", error);
     if (error.code === "P2002") {
-      // Prisma unique constraint violation
       return sendApiResponse(c, {
         status: 409,
         message: "A collection with this name already exists.",
@@ -99,7 +94,6 @@ export const createCollection = async (c: Context) => {
   }
 };
 
-// --- List Collections Handler ---
 export const listCollections = async (c: Context) => {
   const user = getAuthUser(c);
 
@@ -114,15 +108,12 @@ export const listCollections = async (c: Context) => {
   }
 
   try {
-    // 1. Get query parameters
     const { page, pageSize, search } = c.req.query();
     const pageNumber = parseInt(page as string) || 1;
     const pageSizeNumber = parseInt(pageSize as string) || 10;
     const searchQuery = search ? search.trim() : null;
 
-    // 2. Define the base WHERE clause for filtering
     const whereClause: Prisma.CollectionWhereInput = {
-      // Use 'any' or define a proper Prisma WhereInput type
       userId: user.id,
     };
 
@@ -132,12 +123,10 @@ export const listCollections = async (c: Context) => {
       };
     }
 
-    // 3. Get the TOTAL count of matching records (without pagination)
     const totalCount = await db.collection.count({
       where: whereClause,
     });
 
-    // 4. Handle case where no collections are found at all
     if (totalCount === 0) {
       return sendApiResponse(c, {
         status: 200,
@@ -159,14 +148,12 @@ export const listCollections = async (c: Context) => {
       });
     }
 
-    // 5. Calculate pagination metadata based on the *total* count
     const totalPages = Math.ceil(totalCount / pageSizeNumber);
     const hasNextPage = pageNumber < totalPages;
     const hasPreviousPage = pageNumber > 1;
     const nextPage = hasNextPage ? pageNumber + 1 : null;
     const previousPage = hasPreviousPage ? pageNumber - 1 : null;
 
-    // 6. Fetch the collections for the CURRENT page
     const collections = await db.collection.findMany({
       where: whereClause,
       orderBy: { name: "asc" },
@@ -174,25 +161,19 @@ export const listCollections = async (c: Context) => {
       take: pageSizeNumber,
     });
 
-    // Note: We don't need the `if (!collections || collections.length === 0)` check here
-    // anymore because we already handled the `totalCount === 0` case.
-    // If totalCount > 0, but this specific page is empty (e.g., page=100 but only 50 items exist),
-    // it's still a valid scenario, and we should return an empty array for `data`.
-
-    // 7. Return the successful response with correct metadata
     return sendApiResponse(c, {
       status: 200,
       message: "Collections retrieved successfully.",
-      data: collections, // This might be empty if requested page is beyond totalPages
+      data: collections,
       metadata: {
-        totalCount: totalCount, // Use the actual total count
+        totalCount: totalCount,
         page: pageNumber,
         pageSize: pageSizeNumber,
-        totalPages: totalPages, // Use calculated total pages
-        hasNextPage: hasNextPage, // Use calculated value
-        hasPreviousPage: hasPreviousPage, // Use calculated value
-        nextPage: nextPage, // Use calculated value
-        previousPage: previousPage, // Use calculated value
+        totalPages: totalPages,
+        hasNextPage: hasNextPage,
+        hasPreviousPage: hasPreviousPage,
+        nextPage: nextPage,
+        previousPage: previousPage,
       },
       errors: null,
     });
@@ -213,7 +194,6 @@ export const listCollections = async (c: Context) => {
   }
 };
 
-// --- Get Bookmarks by collections  Handler ---
 export const getBookmarksByCollection = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
@@ -280,7 +260,6 @@ export const getBookmarksByCollection = async (c: Context) => {
   }
 };
 
-// --- Get Collection Details Handler ---
 export const getCollection = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
@@ -299,7 +278,7 @@ export const getCollection = async (c: Context) => {
     const collection = await db.collection.findUnique({
       where: {
         id: id,
-        userId: user.id, // Ensure user owns the collection
+        userId: user.id,
       },
       include: {
         bookmarks: {
@@ -348,7 +327,6 @@ export const getCollection = async (c: Context) => {
   }
 };
 
-// --- Update Collection Handler ---
 export const updateCollection = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
@@ -368,7 +346,6 @@ export const updateCollection = async (c: Context) => {
       where: { id },
     });
 
-    // --- Prevent renaming "Unsorted" ---
     if (collection?.isSystem) {
       return sendApiResponse(c, {
         status: 403,
@@ -531,7 +508,6 @@ export const updateCollection = async (c: Context) => {
   }
 };
 
-// --- Delete Collection Handler ---
 export const deleteCollection = async (c: Context) => {
   const user = getAuthUser(c);
   if (!user) {
@@ -547,7 +523,6 @@ export const deleteCollection = async (c: Context) => {
   const { id } = c.req.param();
 
   try {
-    // Fetch the collection to be deleted
     const collection = await db.collection.findUnique({
       where: { id },
     });
@@ -583,7 +558,6 @@ export const deleteCollection = async (c: Context) => {
       });
     }
 
-    // Find user's Unsorted collection
     const unsortedCollection = await db.collection.findFirst({
       where: {
         userId: user.id,
@@ -607,7 +581,6 @@ export const deleteCollection = async (c: Context) => {
       });
     }
 
-    // Find all bookmarks attached to this collection
     const bookmarks = await db.bookmark.findMany({
       where: {
         collections: {
@@ -618,19 +591,18 @@ export const deleteCollection = async (c: Context) => {
     });
 
     await db.$transaction([
-      // Disconnect and Reconnect each bookmark
       ...bookmarks.map((bookmark) =>
         db.bookmark.update({
           where: { id: bookmark.id },
           data: {
             collections: {
-              disconnect: [{ id }], // Remove from the deleted collection
-              connect: [{ id: unsortedCollection.id }], // Add to Unsorted
+              disconnect: [{ id }],
+              connect: [{ id: unsortedCollection.id }],
             },
           },
         })
       ),
-      // Now delete the collection
+
       db.collection.delete({
         where: { id },
       }),

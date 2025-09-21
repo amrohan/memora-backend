@@ -5,23 +5,20 @@ import { Context } from "hono";
 
 const SALT_ROUNDS = 10;
 
-// Hash a plain text password
 export const hashPassword = async (password: string): Promise<string> => {
   return await bcrypt.hash(password, SALT_ROUNDS);
 };
 
-// Compare a plain text password with a hash
 export const comparePassword = async (
   password: string,
-  hash: string,
+  hash: string
 ): Promise<boolean> => {
   return await bcrypt.compare(password, hash);
 };
 
-// Generate a JWT token
 export const generateToken = (
   payload: JwtPayload,
-  expiresInValue?: number,
+  expiresInValue?: number
 ): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -31,7 +28,6 @@ export const generateToken = (
 
   const options: SignOptions = {};
 
-  // Only set expiresIn if exp is NOT manually defined in payload
   if (!payload.exp && expiresInValue) {
     options.expiresIn = expiresInValue;
   }
@@ -39,9 +35,8 @@ export const generateToken = (
   return jwt.sign(payload, secret, options);
 };
 
-// Verify a JWT token and return the payload
 export const verifyToken = (
-  token: string,
+  token: string
 ): (JwtPayload & { iat: number; exp: number }) | null => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -56,7 +51,7 @@ export const verifyToken = (
     };
 
     if (decoded?.userId && decoded?.email) {
-      return decoded; // return full decoded token including exp
+      return decoded;
     }
 
     console.warn("Decoded token is missing fields:", decoded);

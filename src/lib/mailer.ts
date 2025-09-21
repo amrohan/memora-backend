@@ -11,10 +11,9 @@ const transporter = nodemailer.createTransport({
 export async function sendForgotPasswordEmail(
   toEmail: string,
   userName: string,
-  resetToken: string,
+  resetToken: string
 ) {
   const resetUrl = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
-  // const resetUrl = `http://localhost:4200/reset-password?token=${resetToken}`;
 
   const userDisplayName = userName || "Memora User";
   const appName = "Memora";
@@ -52,11 +51,11 @@ The ${appName} Team`,
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Reset Your ${appName} Password</title>
   <style>
-    /* Base Styles */
+   
     body {
       margin: 0;
       padding: 0;
-      background-color: #f8fafc; /* Light gray background for the email client */
+      background-color: #f8fafc;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -82,14 +81,14 @@ The ${appName} Team`,
       letter-spacing: -0.5px;
     }
     .header .logo {
-      font-size: 36px; /* Or use an <img> tag for a real logo */
+      font-size: 36px;
       margin-bottom: 15px;
       display: inline-block;
       background-color: rgba(255, 255, 255, 0.2);
       color:white;
       width: 60px;
       height: 60px;
-      line-height: 60px; /* Vertically center emoji */
+      line-height: 60px;
       border-radius: 12px;
     }
     .header p {
@@ -99,11 +98,11 @@ The ${appName} Team`,
     }
     .content {
       padding: 30px 30px 40px;
-      color: #374151; /* Dark gray for text */
+      color: #374151;
       line-height: 1.6;
     }
     .content h2 {
-      color: #1f2937; /* Near black for headings */
+      color: #1f2937;
       font-size: 22px;
       font-weight: 600;
       margin-top: 0;
@@ -114,12 +113,12 @@ The ${appName} Team`,
       margin-bottom: 20px;
     }
     .button-cta {
-      display: block; /* Makes the link take full width for easier tapping */
-      width: fit-content; /* Or use max-width if preferred */
+      display: block;
+      width: fit-content;
       margin: 30px auto;
       padding: 15px 30px;
       background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);
-      color: white !important; /* Important to override email client link styles */
+      color: white !important;
       text-decoration: none;
       font-size: 17px;
       font-weight: 600;
@@ -135,13 +134,13 @@ The ${appName} Team`,
     .link-section {
       margin-top: 30px;
       padding: 20px;
-      background-color: #f3f4f6; /* Lighter gray for this section */
+      background-color: #f3f4f6;
       border-radius: 8px;
       text-align: center;
     }
     .link-section p {
       font-size: 14px;
-      color: #4b5563; /* Medium gray */
+      color: #4b5563;
       margin-bottom: 10px;
     }
     .reset-url {
@@ -152,16 +151,16 @@ The ${appName} Team`,
       background-color: #e5e7eb;
       padding: 8px 12px;
       border-radius: 4px;
-      display: inline-block; /* So padding is applied correctly */
+      display: inline-block;
     }
     .security-info {
       margin-top: 30px;
       padding: 15px;
-      background-color: #FEFCE8; /* Light yellow for attention */
-      border-left: 4px solid #FACC15; /* Yellow border */
+      background-color: #FEFCE8;
+      border-left: 4px solid #FACC15;
       border-radius: 0 8px 8px 0;
       font-size: 14px;
-      color: #713F12; /* Dark yellow/brown text */
+      color: #713F12;
     }
     .security-info strong {
       color: #713F12;
@@ -170,8 +169,8 @@ The ${appName} Team`,
       padding: 30px;
       text-align: center;
       font-size: 13px;
-      color: #6b7280; /* Lighter gray for footer */
-      border-top: 1px solid #e5e7eb; /* Subtle separator */
+      color: #6b7280;
+      border-top: 1px solid #e5e7eb;
     }
     .footer .app-name {
       color: ${primaryColor};
@@ -191,10 +190,10 @@ The ${appName} Team`,
       color: transparent;
       height: 0;
       width: 0;
-      mso-hide:all; /* For Outlook */
+      mso-hide:all;
     }
 
-    /* Mobile Specific Tweaks (optional, as base is already quite responsive) */
+   
     @media screen and (max-width: 600px) {
       .email-container {
         width: 100% !important;
@@ -271,7 +270,9 @@ The ${appName} Team`,
       </p>
       <p style="margin-top: 15px; font-size: 12px; color: #9ca3af;">
         This is an automated message. Please do not reply to this email.
-        If you need help, visit our <a href="${process.env.APP_URL}/support">Support Center</a> or contact us through the app.
+        If you need help, visit our <a href="${
+          process.env.APP_URL
+        }/support">Support Center</a> or contact us through the app.
       </p>
       <p style="margin-top: 15px; font-size: 12px; color: #9ca3af;">
         © ${new Date().getFullYear()} ${appName}. All rights reserved.
@@ -289,7 +290,7 @@ The ${appName} Team`,
   } catch (error) {
     console.error(`❌ Failed to send email to ${toEmail}:`, error);
     throw new Error(
-      `Failed to send password reset email. Please try again later.`,
+      `Failed to send password reset email. Please try again later.`
     );
   }
 }
@@ -297,7 +298,7 @@ The ${appName} Team`,
 export async function sendAccessCode(
   toEmail: string,
   userName: string,
-  accessCode: string,
+  accessCode: string
 ) {
   const userDisplayName = userName || "Memora User";
   const appName = "Memora";
@@ -385,6 +386,8 @@ If you did not request this, please ignore the email.
     console.log(`✅ Access code email sent to ${toEmail}`);
   } catch (error) {
     console.error(`❌ Failed to send email to ${toEmail}:`, error);
-    throw new Error("Failed to send access code email. Please try again later.");
+    throw new Error(
+      "Failed to send access code email. Please try again later."
+    );
   }
 }

@@ -52,15 +52,12 @@ app.onError((err, c) => {
   return c.json({ error: "Internal Server Error", message: errorMessage }, 500);
 });
 
-// --- Server ---
-const port = parseInt(process.env.PORT || "3000");
+const port = parseInt(process.env.PORT || "5004");
 
-// Function to get current Indian time
 const getCurrentIndianTime = () => {
   try {
     return new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   } catch (e) {
-    // Fallback if timezone data is unavailable in some minimal environments
     console.warn(
       "Could not format time for Asia/Kolkata timezone, using default locale."
     );

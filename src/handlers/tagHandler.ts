@@ -1,6 +1,6 @@
 import { Context } from "hono";
-import db from "../db"; // Import the Prisma client instance [cite: uploaded:src/db.ts]
-import { AuthUser } from "../types"; // Need this for user-specific tags [cite: uploaded:src/types/index.ts]
+import db from "../db";
+import { AuthUser } from "../types";
 import { getAuthUser } from "../lib/authUtils";
 import { sendApiResponse } from "../lib/responseUtils";
 import { Prisma } from "../../generated/prisma";
@@ -11,16 +11,12 @@ import { Prisma } from "../../generated/prisma";
  * @returns JSON response with a list of all tags or an error object.
  */
 export const listAllTags = async (c: Context) => {
-  // No authentication needed usually for listing all possible tags
-
   try {
     const tags = await db.tag.findMany({
       orderBy: { name: "asc" },
       select: {
         id: true,
         name: true,
-        // Optionally include count of *all* bookmarks later
-        // _count: { select: { bookmarks: true } }
       },
     });
     return sendApiResponse(c, {
@@ -36,7 +32,7 @@ export const listAllTags = async (c: Context) => {
       status: 500,
       message: "Failed to retrieve tags.",
       data: null,
-      errors: [{ field: "database", message: error.message }], // Example error handling
+      errors: [{ field: "database", message: error.message }],
       metadata: null,
     });
   }
@@ -63,15 +59,12 @@ export const listUserTags = async (c: Context) => {
   }
 
   try {
-    // 1. Get query parameters
     const { page, pageSize, search } = c.req.query();
     const pageNumber = parseInt(page as string) || 1;
     const pageSizeNumber = parseInt(pageSize as string) || 20;
     const searchQuery = search ? search.trim() : null;
 
-    // 2. Define the WHERE clause using Prisma types
     const whereClause: Prisma.TagWhereInput = {
-      // Use Prisma.TagWhereInput type
       userId: user.id,
     };
 
@@ -81,13 +74,10 @@ export const listUserTags = async (c: Context) => {
       };
     }
 
-    // 3. Get the TOTAL count of matching tags (CORRECTED)
-    //    Ensure NO 'select' clause is used here for a simple count.
     const totalCount = await db.tag.count({
       where: whereClause,
     });
 
-    // 4. Handle case where no tags are found
     if (totalCount === 0) {
       return sendApiResponse(c, {
         status: 200,
@@ -109,16 +99,14 @@ export const listUserTags = async (c: Context) => {
       });
     }
 
-    // 5. Calculate pagination metadata
     const totalPages = Math.ceil(totalCount / pageSizeNumber);
     const hasNextPage = pageNumber < totalPages;
     const hasPreviousPage = pageNumber > 1;
     const nextPage = hasNextPage ? pageNumber + 1 : null;
     const previousPage = hasPreviousPage ? pageNumber - 1 : null;
 
-    // 6. Fetch the tags for the CURRENT page
     const userTags = await db.tag.findMany({
-      where: whereClause, // Use the same where clause
+      where: whereClause,
       orderBy: {
         name: "asc",
       },
@@ -126,7 +114,6 @@ export const listUserTags = async (c: Context) => {
       take: pageSizeNumber,
     });
 
-    // 7. Return the successful response
     return sendApiResponse(c, {
       status: 200,
       message: "User tags retrieved successfully.",
@@ -145,11 +132,11 @@ export const listUserTags = async (c: Context) => {
     });
   } catch (error: any) {
     console.error(`List User Tags Error for user ${user.id}:`, error);
-    // Check if it's a Prisma validation error
+
     if (error instanceof Prisma.PrismaClientValidationError) {
       console.error("Prisma Validation Error:", error.message);
       return sendApiResponse(c, {
-        status: 400, // Bad Request might be more appropriate
+        status: 400,
         message: "Invalid query parameters or filter.",
         data: null,
         metadata: null,
@@ -161,7 +148,7 @@ export const listUserTags = async (c: Context) => {
         ],
       });
     }
-    // General server error
+
     return sendApiResponse(c, {
       status: 500,
       message: "Failed to retrieve user tags.",
@@ -192,7 +179,7 @@ export const getTagByTagId = async (c: Context) => {
     const tag = await db.tag.findUnique({
       where: {
         id: id,
-        // Ensure the tag is linked to at least one bookmark of the user
+
         bookmarks: {
           some: {
             userId: user.id,
@@ -264,7 +251,6 @@ export const createTag = async (c: Context) => {
       });
     }
 
-    // Check if the user already has a tag with the same name
     const existingTag = await db.tag.findFirst({
       where: {
         name: name,
@@ -286,7 +272,6 @@ export const createTag = async (c: Context) => {
       });
     }
 
-    // Create the new tag
     const newTag = await db.tag.create({
       data: {
         name,
@@ -340,7 +325,6 @@ export const updateTag = async (c: Context) => {
       });
     }
 
-    // Update the tag
     const updatedTag = await db.tag.update({
       where: { id: id },
       data: { name: name },
@@ -379,7 +363,6 @@ export const deleteTag = async (c: Context) => {
   const { id } = c.req.param();
 
   try {
-    // 1. Find the tag
     const tag = await db.tag.findUnique({
       where: { id },
     });
@@ -396,17 +379,15 @@ export const deleteTag = async (c: Context) => {
       });
     }
 
-    // 2. Find all bookmarks connected to this tag
     const bookmarks = await db.bookmark.findMany({
       where: {
         tags: {
           some: { id },
         },
       },
-      select: { id: true }, // we only need IDs
+      select: { id: true },
     });
 
-    // 3. Disconnect the tag from each bookmark
     await Promise.all(
       bookmarks.map((bookmark) =>
         db.bookmark.update({
@@ -420,7 +401,6 @@ export const deleteTag = async (c: Context) => {
       )
     );
 
-    // 4. Now delete the tag
     await db.tag.delete({
       where: { id },
     });
