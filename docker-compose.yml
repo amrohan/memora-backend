@@ -1,13 +1,11 @@
-version: "3.9"
+version: "3.8"
+
 services:
-  memora-backend:
+  backend:
     build: .
-    container_name: memora-backend
-    restart: unless-stopped
     ports:
       - "5004:5004"
-    environment:
-      DATABASE_URL: "file:/app/prisma/dev.db"
-      NODE_ENV: "production"
     volumes:
-      - /home/rohan/server/memora-backend/prisma:/app/prisma
+      - /home/rohan/server/memora-backend/prisma/dev.db:/usr/src/app/prisma/dev.db
+    environment:
+      DATABASE_URL: "file:./prisma/dev.db"

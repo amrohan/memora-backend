@@ -1,13 +1,19 @@
-FROM node:20-bullseye-slim
+FROM node:18-alpine
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm install
+RUN npm install --production
+
+COPY prisma ./prisma/
+
+RUN npx prisma generate
 
 COPY . .
 
-EXPOSE 5004
+RUN npm run build
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma generate && npm run build && npm start"]
+EXPOSE 5004 
+
+CMD ["npm", "start"]
