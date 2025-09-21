@@ -8,4 +8,4 @@ services:
     volumes:
       - /home/rohan/server/memora-backend/prisma/dev.db:/usr/src/app/prisma/dev.db
     environment:
-      DATABASE_URL: "file:./prisma/dev.db"
+      DATABASE_URL: "file:/usr/src/app/prisma/dev.db"
