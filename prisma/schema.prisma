@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "sqlite" // Use SQLite
-  url      = "file:./dev.db" // Path relative to schema location
+  url      = env("DATABASE_URL") // Path relative to schema location
 }
 
 model User {
