@@ -16,13 +16,14 @@ app.use("/api/*", cors());
 app.use(
   "/api2/*",
   cors({
-    origin: "http://localhost:4200",
+    origin:
+      "http://localhost:4200,https://memora.pages.dev,https://localhost:4200",
     allowHeaders: ["X-Custom-Header", "Upgrade-Insecure-Requests"],
     allowMethods: ["POST", "GET", "PUT", "OPTIONS"],
     exposeHeaders: ["Content-Length", "X-Kuma-Revision"],
     maxAge: 600,
     credentials: true,
-  })
+  }),
 );
 
 // --- Routing ---
@@ -38,7 +39,7 @@ app.notFound((c) => {
       error: "Not Found",
       message: `The route ${c.req.method} ${c.req.path} does not exist.`,
     },
-    404
+    404,
   );
 });
 
@@ -59,7 +60,7 @@ const getCurrentIndianTime = () => {
     return new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   } catch (e) {
     console.warn(
-      "Could not format time for Asia/Kolkata timezone, using default locale."
+      "Could not format time for Asia/Kolkata timezone, using default locale.",
     );
     return new Date().toLocaleString();
   }
