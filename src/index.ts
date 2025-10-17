@@ -14,15 +14,22 @@ app.use("*", logger());
 app.use("*", secureHeaders());
 app.use("/api/*", cors());
 app.use(
-  "/api2/*",
+  "/api/*",
   cors({
-    origin:
-      "http://localhost:4200,https://memora.pages.dev,https://localhost:4200",
-    allowHeaders: ["X-Custom-Header", "Upgrade-Insecure-Requests"],
-    allowMethods: ["POST", "GET", "PUT", "OPTIONS"],
+    origin: (origin) => {
+      const allowedOrigins = [
+        "http://localhost:4200",
+        "https://localhost:4200",
+        "https://memora.pages.dev",
+        "https://memora.amrohan.in",
+      ];
+      return allowedOrigins.includes(origin ?? "") ? origin : "";
+    },
+    allowHeaders: ["Content-Type", "Authorization", "X-Custom-Header"],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length", "X-Kuma-Revision"],
-    maxAge: 600,
     credentials: true,
+    maxAge: 600,
   }),
 );
 
