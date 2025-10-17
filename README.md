@@ -190,8 +190,4 @@ Contributions and feedback are welcome! Please open issues or submit pull reques
 
 ## 📜 License
 
-This project is licensed under the ISC License.
-
----
-
-_Created by Rohan Salunkhe_
+This project is licensed under the MIT License.
