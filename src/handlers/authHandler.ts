@@ -175,7 +175,7 @@ export const loginUser = async (c: Context) => {
       message: "Login successful.",
       data: {
         token,
-        user: { id: user.id, email: user.email },
+        user: { id: user.id, email: user.email, name: user.name },
       },
       metadata: null,
       errors: null,
@@ -262,7 +262,7 @@ export const resetPassword = async (c: Context) => {
 
     const isCurrentPasswordValid = await comparePassword(
       currentPassword,
-      existingUser.passwordHash
+      existingUser.passwordHash,
     );
     if (!isCurrentPasswordValid) {
       return sendApiResponse(c, {
@@ -334,13 +334,13 @@ const seedUserData = async (userId: string) => {
           userId: userId,
           isSystem: true,
         },
-      })
+      }),
     );
 
     const createTagsPromises = defaultTags.map((name) =>
       db.tag.create({
         data: { name, userId },
-      })
+      }),
     );
 
     await Promise.all([...createCollectionsPromises, ...createTagsPromises]);
@@ -398,7 +398,7 @@ export const forgotPassword = async (c: Context) => {
     await sendForgotPasswordEmail(
       user.email,
       user.name ?? user.email,
-      resetToken
+      resetToken,
     );
 
     return sendApiResponse(c, {
