@@ -130,8 +130,12 @@ export const loginUser = async (c: Context) => {
         ],
       });
     }
-
-    const user = await db.user.findUnique({ where: { email } });
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await db.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    const all = await db.user.findMany();
+    console.log(all);
     if (!user) {
       return sendApiResponse(c, {
         status: 401,
@@ -262,7 +266,7 @@ export const resetPassword = async (c: Context) => {
 
     const isCurrentPasswordValid = await comparePassword(
       currentPassword,
-      existingUser.passwordHash,
+      existingUser.passwordHash
     );
     if (!isCurrentPasswordValid) {
       return sendApiResponse(c, {
@@ -334,13 +338,13 @@ const seedUserData = async (userId: string) => {
           userId: userId,
           isSystem: true,
         },
-      }),
+      })
     );
 
     const createTagsPromises = defaultTags.map((name) =>
       db.tag.create({
         data: { name, userId },
-      }),
+      })
     );
 
     await Promise.all([...createCollectionsPromises, ...createTagsPromises]);
@@ -398,7 +402,7 @@ export const forgotPassword = async (c: Context) => {
     await sendForgotPasswordEmail(
       user.email,
       user.name ?? user.email,
-      resetToken,
+      resetToken
     );
 
     return sendApiResponse(c, {
